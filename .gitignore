@@ -15,3 +15,7 @@ __pycache__/
 node_modules/
 .DS_Store
 Thumbs.db
+
+# Local helpers for working on the repo; not part of what's shared.
+CLAUDE.md
+tsconfig.json
