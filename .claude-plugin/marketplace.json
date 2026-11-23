@@ -1,0 +1,14 @@
+{
+  "name": "claude-up",
+  "description": "Open-source Claude Code mods: animated backdrops, themes and tools, each with its token cost and how it was built.",
+  "owner": {
+    "name": "danielsddd"
+  },
+  "plugins": [
+    {
+      "name": "damn-ddd",
+      "source": "./mods/damn-ddd",
+      "description": "An animated show behind the chat while a long reply runs. Zero model tokens."
+    }
+  ]
+}

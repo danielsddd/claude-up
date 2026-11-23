@@ -1,0 +1,27 @@
+{
+  "name": "damn-ddd",
+  "version": "0.1.0",
+  "description": "When a turn runs long, a cowboy whips a bucket of tokens (damn1) or a hero cuts an evil token in two (damn2), taking turns. UI only, zero model tokens.",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "startAfter": {
+      "type": "number",
+      "title": "Show starts after (seconds)",
+      "description": "Seconds a turn may run before the show starts (default 600 = 10 min). It speeds up at 1.5x this and again at 2x.",
+      "default": 600,
+      "min": 5,
+      "max": 3600
+    }
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "theme",
+    "backdrop",
+    "animation",
+    "mod"
+  ],
+  "author": {
+    "name": "danielsddd"
+  }
+}

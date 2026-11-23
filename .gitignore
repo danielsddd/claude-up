@@ -1,0 +1,17 @@
+# Secrets never go in the repo: API keys live in your own environment variables.
+.env
+.env.*
+*.key
+*.pem
+
+# Written by Claude Code each time it loads a mod; machine-specific.
+.claude-plugin/types/
+
+# Local tooling
+.venv/
+venv/
+__pycache__/
+*.pyc
+node_modules/
+.DS_Store
+Thumbs.db
