@@ -21,7 +21,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   mods:
-    name: Validate and test mods
+    name: Validate mods
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -33,13 +33,3 @@ jobs:
           node-version: 22
       - run: npm install -g @anthropic-ai/claude-code@2.1.330
       - run: claude plugin validate mods/${{ matrix.mod }}
-      - run: claude plugin test mods/${{ matrix.mod }}
-
-  art-tools:
-    name: Art pipeline compiles
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: astral-sh/setup-uv@v10.4.0
-      - run: uv venv .venv && uv pip install --python .venv -r mods/damn-ddd/tools/requirements.txt
-      - run: .venv/bin/python -m py_compile mods/damn-ddd/tools/cel_trace.py mods/damn-ddd/tools/trace_damn2.py

@@ -19,3 +19,8 @@ Thumbs.db
 # Local helpers for working on the repo; not part of what's shared.
 CLAUDE.md
 tsconfig.json
+
+# Kept locally, not shipped: a mod folder holds only what Claude Code needs to run it.
+mods/*/tests/
+mods/*/tools/
+mods/*/docs/
