@@ -27,9 +27,9 @@ export const GROUND_PX = 190 // feet above the window's bottom edge, clear of th
 const REACH = { left: 340, right: 880, up: 630 }
 // What the app covers: the session list on the left, the side panel on the right.
 const SIDEBAR_PX = 400
-const PANEL_PX = 320
+const PANEL_PX = 200
 const MARGIN_PX = 20
-const STEPS = [0.32, 0.4, 0.5, 0.64, 0.82, 1] as const
+const STEPS = [0.4, 0.5, 0.64, 0.8, 1, 1.2] as const
 
 // One size per window: the largest step whose scene fits between the sidebar and the
 // side panel and under the window's top, its left edge just past the sidebar. Shared
