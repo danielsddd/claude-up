@@ -2,6 +2,8 @@
 
 Prompt Master: one button above the Claude Code message box that rewrites a rough prompt into a clear one.
 
+![Prompt Master: a rough draft rewritten into a clear prompt](https://github.com/danielsddd/claude-up/releases/download/v0.2.0/prompt-tools.png)
+
 - Rewrites the draft in the message box with Claude Sonnet, keeping your intent, language and every point.
 - Never sends it. Keeps your draft if the rewrite is cut off, fails, or you kept typing meanwhile.
 
