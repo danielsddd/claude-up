@@ -1,6 +1,6 @@
 {
   "name": "damn-ddd",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "When a turn runs long, a cowboy whips a bucket of tokens (damn1) or a hero cuts an evil token in two (damn2), taking turns. UI only, zero model tokens.",
   "types": "./types/index.d.ts",
   "userConfig": {

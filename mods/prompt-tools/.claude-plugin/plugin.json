@@ -1,0 +1,37 @@
+{
+  "name": "prompt-tools",
+  "version": "0.5.1",
+  "description": "Two buttons above the prompt: Prompt Master rewrites a rough prompt with Sonnet; Critique Plan sends the current plan to four free models (Nemotron 3 Ultra, Mistral Large 4, gpt-oss-120b, Qwen 3.8) through a background helper and merges their critiques with Sonnet",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "nemotronModel": {
+      "type": "string",
+      "title": "NVIDIA model 1 (free)",
+      "description": "Reasoning model on NVIDIA's free API",
+      "default": "nvidia/nemotron-3-ultra-550b-a55b"
+    },
+    "mistralModel": {
+      "type": "string",
+      "title": "NVIDIA model 2 (free)",
+      "description": "Second model on NVIDIA's free API",
+      "default": "mistralai/mistral-large-4-1t-a52b"
+    },
+    "groqModel": {
+      "type": "string",
+      "title": "Groq model 1 (free tier)",
+      "description": "Free-tier Groq reasoning model",
+      "default": "openai/gpt-oss-120b"
+    },
+    "qwenModel": {
+      "type": "string",
+      "title": "Groq model 2 (free tier)",
+      "description": "Second free-tier Groq reasoning model",
+      "default": "qwen/qwen3.8-27b"
+    }
+  },
+  "license": "MIT",
+  "keywords": ["claude-code", "prompt", "plan", "critique", "mod"],
+  "author": {
+    "name": "danielsddd"
+  }
+}

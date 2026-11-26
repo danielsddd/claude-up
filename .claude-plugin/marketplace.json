@@ -9,6 +9,11 @@
       "name": "damn-ddd",
       "source": "./mods/damn-ddd",
       "description": "An animated show behind the chat while a long reply runs. Zero model tokens."
+    },
+    {
+      "name": "prompt-tools",
+      "source": "./mods/prompt-tools",
+      "description": "Prompt Master rewrites a rough prompt with Sonnet; Critique Plan has four free models review a plan, merged by Sonnet."
     }
   ]
 }

@@ -8,7 +8,7 @@ import { FRAME2_ALT, FRAMES2 } from './scene2'
 // Zero model tokens by design: every hook passes its event through unchanged.
 // No prompt/system-prompt edits, no tools, no model calls. The /damn1 and /damn2
 // replies are display-only (isTextDisplayOnly), so they never go into a request either.
-// The only thing it changes is the backdrop behind the chat (plus a crack sound).
+// The only thing it changes is the backdrop behind the chat. It plays no sound.
 
 const stage = atom({ plugin: 'damn-ddd', key: 'stage' } as const, 0 as Stage)
 const show = atom({ plugin: 'damn-ddd', key: 'show' } as const, 'damn1' as Show)
@@ -28,11 +28,6 @@ const MIN_BEAT_MS = 100
 const TEMPO: Record<1 | 2 | 3, number> = { 1: 1, 2: 0.85, 3: 0.72 }
 const AFTER: Record<Beat, Beat> = { idle: 'raise', raise: 'swing', swing: 'strike', strike: 'idle' }
 const STRIKES = ['strike0', 'strike1', 'strike2'] as const
-
-async function crack($: EngineInterface): Promise<void> {
-  // Surfaces with no player (a Windows terminal) skip it; a refusal is not worth a line.
-  await $.audio.play({ asset: 'assets/crack.wav' }, { gain: 0.7 }).catch(() => undefined)
-}
 
 // Timers and flags live at module level: the engine lets `$` be handed only to
 // functions declared at the top of the file. A reload starts them over.
@@ -79,7 +74,6 @@ async function raiseTo($: EngineInterface, next: Stage): Promise<void> {
   })
   if (raised) {
     await redraw($)
-    void crack($)
   }
 }
 
