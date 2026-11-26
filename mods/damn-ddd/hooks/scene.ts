@@ -21,8 +21,27 @@ type Look = {
 }
 
 const SCALE = 1.9 // cowboy units to scene units
-export const LEFT_FEET_PX = 580 // from the window's left edge, past the ~340px sidebar
 export const GROUND_PX = 130 // feet above the window's bottom edge
+
+// The scene's reach around the feet at full size (whip back, bucket, speech bubble).
+const REACH = { left: 340, right: 880, up: 630 }
+// What the app covers: the session list on the left, the side panel on the right.
+const SIDEBAR_PX = 400
+const PANEL_PX = 320
+const MARGIN_PX = 20
+const STEPS = [0.32, 0.4, 0.5, 0.64, 0.82, 1] as const
+
+// One size per window: the largest step whose scene fits between the sidebar and the
+// side panel and under the window's top, its left edge just past the sidebar. Shared
+// by both shows; `.size` wraps a scene drawn around the feet at (0, ground).
+export const SIZE_CSS = STEPS.map((s, i) => {
+  const feet = Math.round(SIDEBAR_PX + MARGIN_PX + REACH.left * s)
+  const rule = `.size{transform:translate(${feet}px,0) scale(${s})}`
+  if (i === 0) return rule
+  const minWidth = Math.ceil(SIDEBAR_PX + PANEL_PX + 2 * MARGIN_PX + (REACH.left + REACH.right) * s)
+  const minHeight = Math.ceil(GROUND_PX + 30 + MARGIN_PX + REACH.up * s)
+  return `@media (min-width: ${minWidth}px) and (min-height: ${minHeight}px){${rule}}`
+}).join('')
 
 const LOOKS: Record<Exclude<Stage, 0>, Look> = {
   1: {
@@ -208,10 +227,7 @@ const STYLE =
   `100%{transform:translate(0,-18px) scale(1.9);opacity:0}}` +
   `.roll{animation:roll 8s linear infinite}` +
   `@keyframes roll{0%{transform:translateX(300px)}100%{transform:translateX(2600px)}}` +
-  // One size on any window, a step smaller on short or narrow ones.
-  `.size{transform:scale(1)}` +
-  `@media (max-height: 1000px), (max-width: 1500px){.size{transform:scale(.82)}}` +
-  `@media (max-height: 780px), (max-width: 1200px){.size{transform:scale(.64)}}` +
+  SIZE_CSS +
   `.hop{animation:hop .8s cubic-bezier(.3,0,.7,1) infinite alternate}` +
   `@keyframes hop{0%{transform:translateY(0)}100%{transform:translateY(-34px)}}` +
   `.spin{animation:spin 1.8s linear infinite}` +
@@ -466,7 +482,7 @@ function scene(stage: Exclude<Stage, 0>): string {
       `.k${i} .arm,.k${i} .lean,.k${i} .hit,.k${i} .wave,.k${i} .sparks,.k${i} .jolt,.k${i} .tk{` +
       `animation-duration:${c.period}s;animation-delay:${c.delay}s}`
     body +=
-      `<g class="k${i}"><svg x="${LEFT_FEET_PX}" y="100%" overflow="visible">` +
+      `<g class="k${i}"><svg x="0" y="100%" overflow="visible">` +
       `<g transform="translate(0 -${GROUND_PX})"><g class="size">` +
       (look.dust ? dust() : '') +
       bucket(c) +

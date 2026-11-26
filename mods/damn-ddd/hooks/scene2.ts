@@ -2,7 +2,7 @@ import { BODY, COIN, HERO_ART, IDLE, IDLE_ART, IDLE_BLADE, RAISE, RAISE_BLADE, S
 import type { Blade, Piece } from './art2'
 import type { Frame2 } from '../types'
 import { burstBalloon } from './balloon'
-import { GROUND_PX, LEFT_FEET_PX } from './scene'
+import { GROUND_PX, SIZE_CSS } from './scene'
 
 // damn2: one hero, traced from the hand-drawn character art, lifts his sword and cuts
 // the evil token in two. Played as held key frames, the way hand-drawn anime is: the
@@ -31,9 +31,7 @@ const about = (x: number, y: number, cls: string, inner: string): string =>
   `<g transform="translate(${n(x)} ${n(y)})"><g class="${cls}"><g transform="translate(${n(-x)} ${n(-y)})">${inner}</g></g></g>`
 
 const BASE =
-  `.size{transform:scale(1)}` +
-  `@media (max-height: 1000px), (max-width: 1500px){.size{transform:scale(.82)}}` +
-  `@media (max-height: 780px), (max-width: 1200px){.size{transform:scale(.64)}}` +
+  SIZE_CSS +
   `.shake{animation:shake .26s linear 1}` +
   `@keyframes shake{0%{transform:translate(0,0)}20%{transform:translate(7px,-5px)}40%{transform:translate(-6px,4px)}` +
   `60%{transform:translate(4px,3px)}80%{transform:translate(-3px,-2px)}100%{transform:translate(0,0)}}` +
@@ -295,7 +293,7 @@ function frameSvg(content: string, opts: { defs?: string; shake?: boolean } = {}
     `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
     `<defs>${FX_DEFS}${opts.defs ?? ''}</defs>` +
     `<style>${BASE}${FX_CSS}</style>` +
-    `<svg x="${LEFT_FEET_PX}" y="100%" overflow="visible"><g transform="translate(0 -${GROUND_PX})">` +
+    `<svg x="0" y="100%" overflow="visible"><g transform="translate(0 -${GROUND_PX})">` +
     `<g class="size">${wrap}</g></g></svg></svg>`
   )
 }

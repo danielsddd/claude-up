@@ -78,8 +78,12 @@ async function raiseTo($: EngineInterface, next: Stage): Promise<void> {
 }
 
 async function climbFrom($: EngineInterface, next: Stage): Promise<void> {
+  // A dismissal while this step was waiting must not bring the show back.
+  if (isDismissed) {
+    return
+  }
   await raiseTo($, next)
-  if (next < 3) {
+  if (next < 3 && !isDismissed) {
     climb = $.clock.after(CLIMB_MS, () => void climbFrom($, (next + 1) as Stage))
   }
 }
@@ -163,13 +167,13 @@ async function autoRaise($: EngineInterface, next: Stage, isTurnsFirst: boolean)
 
 const COMMANDS: Record<Show, { description: string; go: string; stop: string }> = {
   damn1: {
-    description: 'The cowboy cracks his whip at the token bucket; click the screen to send him off ("stop" works too)',
-    go: 'Yeehaw! Click the screen to send him off.',
+    description: 'The cowboy cracks his whip at the token bucket until the reply finishes; "stop" sends him off sooner',
+    go: 'Yeehaw! He leaves when the reply finishes, or click an empty spot or right-click to send him off.',
     stop: 'Whip holstered.',
   },
   damn2: {
-    description: 'The hero cuts the evil token in two; click the screen to send him off ("stop" works too)',
-    go: 'Blade drawn! Click the screen to send him off.',
+    description: 'The hero cuts the evil token in two until the reply finishes; "stop" sends him off sooner',
+    go: 'Blade drawn! He leaves when the reply finishes, or click an empty spot or right-click to send him off.',
     stop: 'Sword sheathed.',
   },
 }
@@ -247,15 +251,18 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  on('turn.complete', ($, e, next) => {
+  on('turn.complete', async ($, e, next) => {
     if (e.agentId === undefined && e.turnId === mainTurnId) {
-      // The turn's timer stops; a show already out stays until sent off.
+      // The reply is done: its timer stops and any show leaves with it.
       ticker?.cancel()
       ticker = undefined
       mainTurnId = undefined
+      if ((await read($, stage)) !== 0) {
+        await dismiss($)
+      }
     }
     return next(e)
-  })
+  }).catch(($, e, next) => next(e))
 
   on('ui.render', { component: 'Backdrop' }, async ($, e, next) => {
     if (e.surface !== 'desktop' && e.surface !== 'mobile') {

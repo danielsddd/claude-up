@@ -21,7 +21,7 @@ The two alternate on each long reply. Desktop and mobile apps only.
 | --- | --- |
 | Automatic | Starts when one reply runs 10 minutes |
 | Manual | `/damn1` or `/damn2` |
-| Dismiss | Click the background, or `/damn1 stop` |
+| Dismiss | Automatic when the reply finishes; sooner: click an empty part of the background, right-click → **Send him off**, or `/damn1 stop` |
 | Delay | Option **Show starts after (seconds)**, default 600 |
 
 ## Cost
