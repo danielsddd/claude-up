@@ -19,6 +19,11 @@
       "name": "dev-vault",
       "source": "./mods/dev-vault",
       "description": "A plain-markdown second brain: /preserve, /pickup and /log-fix keep session handoffs and solved bugs in a vault folder. Zero tokens at rest."
+    },
+    {
+      "name": "profiles",
+      "source": "./mods/profiles",
+      "description": "/profile focuses Claude Code on one folder: type presets, hidden unrelated skills, scoped permissions and run steps, all in that folder's private settings."
     }
   ]
 }

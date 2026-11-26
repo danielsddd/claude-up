@@ -1,0 +1,10 @@
+{
+  "name": "profiles",
+  "version": "0.1.0",
+  "description": "/profile focuses Claude Code on one folder: picks a type preset (web, android, claude-mods, academic, data, embedded), hides unrelated skills, scopes permissions to the folder's real commands and writes its run steps, in the folder's private settings.",
+  "license": "MIT",
+  "keywords": ["claude-code", "profiles", "skills", "permissions", "settings"],
+  "author": {
+    "name": "danielsddd"
+  }
+}
