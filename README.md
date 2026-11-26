@@ -12,6 +12,7 @@ Each extension is a Claude Code plugin in its own folder under `mods/`.
 | --- | --- | --- |
 | [damn-ddd](mods/damn-ddd) | Animated scenes behind the chat during long replies | 0 |
 | [prompt-tools](mods/prompt-tools) | Prompt Master: rewrite a rough prompt into a clear one | about 700 per rewrite |
+| [dev-vault](mods/dev-vault) | A markdown second brain: session handoffs, decisions and solved bugs | 0 at rest, 1-3k per command |
 
 ## Install
 

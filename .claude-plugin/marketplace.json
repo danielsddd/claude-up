@@ -14,6 +14,11 @@
       "name": "prompt-tools",
       "source": "./mods/prompt-tools",
       "description": "Prompt Master: a button that rewrites a rough prompt into a clear one with Sonnet, never sending it."
+    },
+    {
+      "name": "dev-vault",
+      "source": "./mods/dev-vault",
+      "description": "A plain-markdown second brain: /preserve, /pickup and /log-fix keep session handoffs and solved bugs in a vault folder. Zero tokens at rest."
     }
   ]
 }
