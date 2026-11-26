@@ -13,7 +13,7 @@
     {
       "name": "prompt-tools",
       "source": "./mods/prompt-tools",
-      "description": "Prompt Master rewrites a rough prompt with Sonnet; Critique Plan has four free models review a plan, merged by Sonnet."
+      "description": "Prompt Master: a button that rewrites a rough prompt into a clear one with Sonnet, never sending it."
     }
   ]
 }

@@ -11,7 +11,7 @@ Each extension is a Claude Code plugin in its own folder under `mods/`.
 | Extension | Description | Model tokens |
 | --- | --- | --- |
 | [damn-ddd](mods/damn-ddd) | Animated scenes behind the chat during long replies | 0 |
-| [prompt-tools](mods/prompt-tools) | Rewrite a rough prompt; have free models critique a plan | about 700 per rewrite, 10-40K per critique merge |
+| [prompt-tools](mods/prompt-tools) | Prompt Master: rewrite a rough prompt into a clear one | about 700 per rewrite |
 
 ## Install
 
