@@ -21,7 +21,7 @@ type Look = {
 }
 
 const SCALE = 1.9 // cowboy units to scene units
-export const GROUND_PX = 130 // feet above the window's bottom edge
+export const GROUND_PX = 190 // feet above the window's bottom edge, clear of the button row and message box
 
 // The scene's reach around the feet at full size (whip back, bucket, speech bubble).
 const REACH = { left: 340, right: 880, up: 630 }
