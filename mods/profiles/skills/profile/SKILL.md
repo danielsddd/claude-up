@@ -19,7 +19,9 @@ Match the folder against [presets/](presets/) by their **Signals**; several can 
 
 From the matched presets and what the scan found:
 
-- **Skills:** list the skills available in this session. Keep visible every skill a matched preset lists as relevant, plus general ones (debugging, git, code review, verification, writing). Set the rest to `"name-only"` in `skillOverrides` (still invocable by name, no description in context). Use `"off"` only for skills that must never trigger here.
+- **Skills:** list the skills available in this session. Keep visible every skill a matched preset lists as relevant, plus general ones (debugging, git, code review, verification, writing). For the rest:
+  - a standalone skill (no `plugin:` prefix): `"name-only"` in `skillOverrides` (still invocable by name, no description in context); `"off"` only for skills that must never trigger here;
+  - a plugin's skills (`plugin:skill`): `skillOverrides` does not reach them; turn the whole plugin off for this folder with `"enabledPlugins": { "<plugin>@<marketplace>": false }` when none of its skills fit. Plugins synced from a claude.ai account cannot be turned off per folder; say so instead.
 - **Permissions:** `allow` the folder's real read-only and check commands found in the scan (tests, lint, typecheck, build, health checks), written as the repo runs them. `ask` before pushing, publishing, deploying, or reading `.env`. `deny` what the preset or project rules forbid (for example tests that hit real services). Never allow a broad pattern such as `Bash(*)`, `node -e *` or `python -`.
 - **Run steps:** if CLAUDE.md has no way to start, check and stop the app, add a short "Local dev" section with the commands found (keep CLAUDE.md under 150 lines; move long material to `docs/` or `.claude/rules/`).
 - **Vault link:** if `DEV_VAULT` is set and the folder has no `.obsidian-project`, create the link as the dev-vault plugin describes.
