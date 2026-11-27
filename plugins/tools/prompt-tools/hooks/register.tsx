@@ -851,21 +851,29 @@ export function factsCells(f: Facts, label = 'Fact check'): Cells {
 
 type UI = ReturnType<EngineInterface['ui']['resolve']>
 
-// Add research appears only while the critics run, and only when research is not already
-// part of the critique (the plugin setting) or added: first one button, then mini or pro.
-function researchButtons($: EngineInterface, Button: UI['Button'], prefix: string, r: Run, settings: Settings) {
-  if (r.phase !== 'critiquing' || r.research.status !== 'off' || settings.research !== 'off') return null
-  if (!r.isPickingResearch) {
-    return <Button key={`${prefix}add-research`} label="Add research" onPress={() => void update($, run, (x): Run => ({ ...x, isPickingResearch: true }))} />
+// The buttons while a critique runs: at most three at a time, on one line.
+// Add research shows only while the critics run and research is not already part of
+// the critique; choosing mini or pro replaces the whole row until you pick or go back.
+function runningButtons($: EngineInterface, Button: UI['Button'], prefix: string, r: Run, settings: Settings) {
+  const canAddResearch = r.phase === 'critiquing' && r.research.status === 'off' && settings.research === 'off'
+  if (canAddResearch && r.isPickingResearch) {
+    return [
+      <Button key={`${prefix}research-mini`} label="Mini (≤110 credits)" onPress={() => {
+        $.clock.after(0, () => void addResearch($, 'mini'))
+      }} />,
+      <Button key={`${prefix}research-pro`} label="Pro (≤250 credits)" onPress={() => {
+        $.clock.after(0, () => void addResearch($, 'pro'))
+      }} />,
+      <Button key={`${prefix}research-back`} label="Back" onPress={() => void update($, run, (x): Run => ({ ...x, isPickingResearch: false }))} />,
+    ]
   }
+  const canMergeNow = r.phase === 'critiquing' && r.slots.filter(s => s.status === 'done').length >= MERGE_NOW_AT
   return [
-    <Button key={`${prefix}research-mini`} label={`Research mini (${RESEARCH_COST.mini})`} onPress={() => {
-      $.clock.after(0, () => void addResearch($, 'mini'))
-    }} />,
-    <Button key={`${prefix}research-pro`} label={`Research pro (${RESEARCH_COST.pro})`} onPress={() => {
-      $.clock.after(0, () => void addResearch($, 'pro'))
-    }} />,
-    <Button key={`${prefix}research-back`} label="No research" onPress={() => void update($, run, (x): Run => ({ ...x, isPickingResearch: false }))} />,
+    ...(canAddResearch ? [<Button key={`${prefix}add-research`} label="Add research" onPress={() => void update($, run, (x): Run => ({ ...x, isPickingResearch: true }))} />] : []),
+    ...(canMergeNow ? [<Button key={`${prefix}merge-now`} label="Merge now" onPress={() => {
+      $.clock.after(0, () => void mergeNow($))
+    }} />] : []),
+    <Button key={`${prefix}cancel`} label="Cancel" onPress={() => cancel($)} />,
   ]
 }
 
@@ -956,13 +964,7 @@ export const register: Register = (on, options) => {
               $.clock.after(0, () => void start($, settings, id))
             }} />
           )}
-          {mine && researchButtons($, Button, 'row-', r, settings)}
-          {mine && r.phase === 'critiquing' && r.slots.filter(s => s.status === 'done').length >= MERGE_NOW_AT && (
-            <Button key="row-merge-now" label="Merge now" onPress={() => {
-              $.clock.after(0, () => void mergeNow($))
-            }} />
-          )}
-          {mine && busy && <Button key="row-cancel" label="Cancel" onPress={() => cancel($)} />}
+          {mine && busy && runningButtons($, Button, 'row-', r, settings)}
         </Box>
       </Box>
     )
@@ -1008,14 +1010,7 @@ export const register: Register = (on, options) => {
           {lines}
           {r.phase === 'merging' && <Text key="merging">Merging with Sonnet</Text>}
           <Box flexDirection="row" gap={1}>
-            {prompt}
-            {researchButtons($, Button, '', r, settings)}
-            {r.phase === 'critiquing' && r.slots.filter(s => s.status === 'done').length >= MERGE_NOW_AT && (
-              <Button key="merge-now" label="Merge now" onPress={() => {
-                $.clock.after(0, () => void mergeNow($))
-              }} />
-            )}
-            <Button key="cancel" label="Cancel" onPress={() => cancel($)} />
+            {runningButtons($, Button, '', r, settings)}
           </Box>
         </Box>
       )
@@ -1034,7 +1029,6 @@ export const register: Register = (on, options) => {
         {brief.length > room && <Text key="more" dimColor>{brief.length - room} more lines: Use in prompt puts the whole brief in the message box.</Text>}
         {r.isFilled && <Text key="filled" dimColor>In your message box: review it, then send it yourself.</Text>}
         <Box flexDirection="row" gap={1}>
-          {prompt}
           {hasBrief && <Button key="use" label="Use in prompt" onPress={() => useInPrompt($)} />}
           {hasFailed && <Button key="retry" label="Retry failed" onPress={() => {
             $.clock.after(0, () => void retryFailed($, settings))

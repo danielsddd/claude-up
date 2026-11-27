@@ -47,7 +47,7 @@ Critique Plan reads free API keys from environment variables. A missing key only
 | Read the brief | It shows under the plan while the plan card is open, and above the message box afterwards |
 | Use the brief | Choose **No, keep planning** on the plan card: the brief goes into the message box; review it and send it yourself |
 | Read a critic's row | Model and details on the left (usage such as `3/1000 daily requests \| 4.2k/38k tokens`, or which model it replaced and why); its state on the right |
-| Add deep research to one critique | After **Critique Plan**, press **Add research**, then **Research mini** or **Research pro** |
+| Add deep research to one critique | After **Critique Plan**, press **Add research**, then **Mini** or **Pro** (or **Back**) |
 | Rerun what failed | **Retry failed** |
 | Settings | `factCheck` (on) and `research` (`off`, `mini` or `pro`: research in every critique; off by default) in the plugin's settings |
 
