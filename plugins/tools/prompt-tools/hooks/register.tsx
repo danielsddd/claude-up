@@ -237,8 +237,11 @@ export function usageNote(s: SlotStatus): string {
   const parts: string[] = []
   const limit = s.dayLimit ?? 0
   const left = s.dayLeft ?? -1
-  if (limit > 0 && left >= 0) parts.push(`${limit - left}/${limit} daily requests`)
-  else if ((s.todayRequests ?? 0) > 0) parts.push(`${s.todayRequests} daily requests`)
+  // Groq's 'remaining' refills through the day, so limit minus remaining undercounts:
+  // count today's requests locally and take only the limit from the provider.
+  const today = Math.max(s.todayRequests ?? 0, limit > 0 && left >= 0 ? limit - left : 0)
+  if (limit > 0) parts.push(`${today}/${limit} daily requests`)
+  else if (today > 0) parts.push(`${today} daily requests`)
   const run = s.tokens ?? 0
   const total = Math.max(s.totalTokens ?? 0, run)
   if (run > 0) parts.push(`${tokenCount(run)}/${tokenCount(total)} tokens`)
@@ -269,7 +272,7 @@ export function factsNote(s: FactsStatus): string {
   if (s.phase === 'extracting') return 'finding the claims to check'
   if (s.phase === 'searching') return `searching ${s.searched}/${s.claims} claims`
   if (s.phase === 'researching') return 'deep research'
-  return s.note || 'running'
+  return s.note
 }
 
 // The search evidence as the merge reads it.
@@ -306,7 +309,8 @@ export function buildJob(
     })
   let facts: Record<string, unknown> | null = null
   if (withFacts) {
-    files.facts = { status: `${base}-facts.status.json`, out: `${base}-facts.out.json` }
+    // Its own prefix: a slot id (such as 'facts') must never share the fact check's files.
+    files.facts = { status: `${base}-factcheck.status.json`, out: `${base}-factcheck.out.json` }
     const f = lineup.factCheck
     facts = {
       maxClaims: f.maxClaims,
@@ -407,7 +411,7 @@ async function start($: EngineInterface, settings: Settings, rowId: string): Pro
     planLabel: plan.label,
     planText: plan.text,
     slots: lineup.slots.map(s => ({ id: s.id, name: s.candidates[0]?.name ?? s.id, status: 'running', note: 'starting', error: '', text: '', usage: '' })),
-    facts: settings.factCheck ? { status: 'running', note: 'starting', text: '' } : FACTS_OFF,
+    facts: settings.factCheck ? { status: 'running', note: '', text: '' } : FACTS_OFF,
   }))
   await launch($, lineup, settings, lineup.slots.map(s => s.id), settings.factCheck, gen)
 }
@@ -489,7 +493,7 @@ async function poll($: EngineInterface, gen: number, files: JobFiles, deadline: 
     } else {
       open += 1
       if (gen !== generation) return
-      await update($, run, (r): Run => ({ ...r, facts: { ...r.facts, note: s ? factsNote(s) : 'starting' } }))
+      await update($, run, (r): Run => ({ ...r, facts: { ...r.facts, note: s ? factsNote(s) : '' } }))
     }
   }
   if (gen !== generation) return
@@ -599,7 +603,7 @@ async function retryFailed($: EngineInterface, settings: Settings): Promise<void
   await update($, run, x => {
     let next: Run = x
     for (const id of ids) next = setSlot(next, id, { status: 'running', note: 'starting', error: '', usage: '' })
-    if (facts) next = { ...next, facts: { status: 'running', note: 'starting', text: '' } }
+    if (facts) next = { ...next, facts: { status: 'running', note: '', text: '' } }
     return next
   })
   await launch($, lineup, settings, ids, facts, gen)

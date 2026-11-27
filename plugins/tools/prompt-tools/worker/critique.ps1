@@ -312,7 +312,11 @@ function Step-Slot($s) {
     return
   }
   if (-not $s.reader) {
-    if (-not $s.send.IsCompleted) { return }
+    # Still waiting for the first byte: keep the timer in the status file moving.
+    if (-not $s.send.IsCompleted) {
+      if (($now - $s.written).TotalSeconds -ge 2) { Write-SlotStatus $s }
+      return
+    }
     if ($s.send.IsFaulted) { Fail-Candidate $s (Hide-Keys $s.send.Exception.GetBaseException().Message); return }
     $resp = $s.send.Result
     if (-not $resp.IsSuccessStatusCode) {
