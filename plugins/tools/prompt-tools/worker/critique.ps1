@@ -651,7 +651,8 @@ function Step-Facts {
   }
 }
 
-if ($facts) { Write-Facts; Start-Extract }
+# A research-only job (Add research during a critique) skips the claims and searches.
+if ($facts) { Write-Facts; if ($facts.cfg.researchOnly) { Start-Research } else { Start-Extract } }
 
 # ---------- main loop ----------
 

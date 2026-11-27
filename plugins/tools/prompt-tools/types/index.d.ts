@@ -27,6 +27,10 @@ export type Run = {
   planText: string
   slots: Slot[]
   facts: Facts
+  // Deep research added during this critique (Add research): its own row and report.
+  research: Facts
+  // The Add research choice (mini or pro) is open.
+  isPickingResearch: boolean
   brief: string
   error: string
   // The brief waits for the message box, which the plan card hides.
@@ -37,11 +41,8 @@ export type Run = {
 // The latest plan in this session: a plan file Claude wrote, or the text it proposed.
 export type LastPlan = { path: string; label: string; text: string }
 
-// Deep research for the next critique only: 'default' follows the plugin setting.
-export type ResearchChoice = 'default' | 'off' | 'mini' | 'pro'
-
 declare module 'claude-code' {
   interface PluginState {
-    'prompt-tools': { isBusy: Shaped<Busy>; run: Shaped<Run>; lastPlan: Shaped<LastPlan>; research: Shaped<ResearchChoice> }
+    'prompt-tools': { isBusy: Shaped<Busy>; run: Shaped<Run>; lastPlan: Shaped<LastPlan> }
   }
 }

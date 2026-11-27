@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Facts, LastPlan, ResearchChoice, Run, Slot } from '../types'
+import type { Facts, LastPlan, Run, Slot } from '../types'
 
 // ---------- Prompt Master: rewrite the rough prompt in the message box with Sonnet, never send it ----------
 
@@ -120,7 +120,7 @@ Problems that would break the work, lose data, leak secrets or fail in practice.
 ## Worth considering
 Real but smaller improvements, one line each.
 ## Fact check
-Only when search results are given. One line per claim: ✓ when the sources support it, ✗ when they contradict it (say what is true), ? when they do not settle it; then the source URL. Judge only from the given results, never from memory.
+Only when search results or a research report are given. One line per claim: ✓ when the sources support it, ✗ when they contradict it (say what is true), ? when they do not settle it; then the source URL. Judge only from the given results, never from memory.
 ## Reviewers disagreed
 Where critics contradict each other: both views in one line, then your judgement.
 ## Changes to make
@@ -156,6 +156,8 @@ const IDLE: Run = {
   planText: '',
   slots: [],
   facts: FACTS_OFF,
+  research: FACTS_OFF,
+  isPickingResearch: false,
   brief: '',
   error: '',
   pendingFill: false,
@@ -164,28 +166,14 @@ const IDLE: Run = {
 
 // Change the tag when Run's meaning changes: it declines what an earlier
 // version stored, which outlives a reload.
-const run = atom({ plugin: 'prompt-tools', key: 'run' } as const, IDLE, { shape: 'pcm-6' })
+const run = atom({ plugin: 'prompt-tools', key: 'run' } as const, IDLE, { shape: 'pcm-7' })
 const lastPlan = atom({ plugin: 'prompt-tools', key: 'lastPlan' } as const, { path: '', label: '', text: '' } as LastPlan, {
   shape: 'plan-1',
 })
 
-// The Research button's choice for the next critique; reset after each start, so an
-// expensive research call never stays on by accident.
-const researchChoice = atom({ plugin: 'prompt-tools', key: 'research' } as const, 'default' as ResearchChoice, { shape: 'rc-1' })
-
-// The research mode a critique runs with: the button's choice, else the setting.
-export function researchFor(choice: ResearchChoice, setting: Settings['research']): Settings['research'] {
-  return choice === 'default' ? setting : choice
-}
-
-// What a press of the Research button switches to next.
-export function nextResearch(current: Settings['research']): Settings['research'] {
-  return current === 'off' ? 'mini' : current === 'mini' ? 'pro' : 'off'
-}
-
-export function researchLabel(mode: Settings['research']): string {
-  return mode === 'mini' ? 'Research: mini' : mode === 'pro' ? 'Research: pro' : 'Research: off'
-}
+// Research added during a critique runs as its own helper job: its files and cancel file.
+let researchFiles: { status: string; out: string } | null = null
+let researchCancel = ''
 
 // Bumped on every start and cancel, so a late reply from an older run is dropped.
 let generation = 0
@@ -479,10 +467,6 @@ async function start($: EngineInterface, settings: Settings, rowId: string): Pro
     $.ui.toast(`Critique Plan: ${String(err).replace(/^Error: /, '')}`)
     return
   }
-  // Deep research needs the fact check's flow, so choosing it turns the fact check on.
-  const research = researchFor(await read($, researchChoice), settings.research)
-  const runSettings: Settings = { factCheck: settings.factCheck || research !== 'off', research }
-  await update($, researchChoice, (): ResearchChoice => 'default')
   generation += 1
   const gen = generation
   await update($, run, (): Run => ({
@@ -491,9 +475,9 @@ async function start($: EngineInterface, settings: Settings, rowId: string): Pro
     planLabel: plan.label,
     planText: plan.text,
     slots: lineup.slots.map(s => ({ id: s.id, name: s.candidates[0]?.name ?? s.id, status: 'running', note: 'starting', error: '', text: '', usage: '' })),
-    facts: runSettings.factCheck ? { status: 'running', note: '', text: '' } : FACTS_OFF,
+    facts: settings.factCheck ? { status: 'running', note: '', text: '' } : FACTS_OFF,
   }))
-  await launch($, lineup, runSettings, lineup.slots.map(s => s.id), runSettings.factCheck, gen)
+  await launch($, lineup, settings, lineup.slots.map(s => s.id), settings.factCheck, gen)
 }
 
 async function monthlyCheck($: EngineInterface): Promise<void> {
@@ -600,6 +584,22 @@ async function poll($: EngineInterface, gen: number, files: JobFiles, deadline: 
       await update($, run, (r): Run => ({ ...r, facts: { ...r.facts, note: s ? factsNote(s) : '' } }))
     }
   }
+  if (before.research.status === 'running') {
+    const rf = researchFiles
+    const s = rf ? parse<FactsStatus>(await $.fs.read(rf.status).catch(() => '')) : null
+    if (rf && s && ['done', 'skipped', 'failed'].includes(s.phase)) {
+      const out = parse<FactsOut>(await $.fs.read(rf.out).catch(() => ''))
+      const report = (out?.research ?? '').trim()
+      const note = [report !== '' ? 'report ready' : '', out?.note || s.note, creditsNote(s)].filter(Boolean).join(' | ')
+      if (gen !== generation) return
+      await update($, run, (r): Run => ({ ...r, research: { status: report !== '' ? 'done' : 'failed', note: note || 'no report', text: report !== '' ? cap(report, FACTS_CAP, 'research report') : '' } }))
+      researchCancel = ''
+    } else {
+      open += 1
+      if (gen !== generation) return
+      await update($, run, (r): Run => ({ ...r, research: { ...r.research, note: s?.phase === 'researching' ? `researching, ${s.seconds}s` : r.research.note } }))
+    }
+  }
   if (gen !== generation) return
   if (open === 0) {
     activeCancel = ''
@@ -634,6 +634,7 @@ async function merge($: EngineInterface, gen: number): Promise<void> {
   const prompt = done
     .map(s => `## Critique from ${s.name}\n${s.text}`)
     .concat(r.facts.text !== '' ? [`## Web search results for the plan's claims\n${r.facts.text}`] : [])
+    .concat(r.research.text !== '' ? [`## Deep research report (Tavily)\n${r.research.text}`] : [])
     .concat(`## The plan (for reference)\n${cap(r.planText, PLAN_CAP, 'plan')}`)
     .join('\n\n')
 
@@ -725,17 +726,70 @@ async function mergeNow($: EngineInterface): Promise<void> {
     activeCancel = ''
     await $.fs.write(file, 'cancel').catch(() => undefined)
   }
+  await stopResearch($)
   await update($, run, r => {
     let next = r
     for (const s of next.slots) if (s.status === 'running') next = setSlot(next, s.id, { status: 'failed', error: 'stopped to merge early', note: '' })
     if (next.facts.status === 'running') next = { ...next, facts: { status: 'failed', note: 'stopped to merge early', text: '' } }
-    return next
+    if (next.research.status === 'running') next = { ...next, research: { status: 'failed', note: 'stopped to merge early', text: '' } }
+    return { ...next, isPickingResearch: false }
   })
   await merge($, gen)
 }
 
+async function stopResearch($: EngineInterface): Promise<void> {
+  if (researchCancel === '') return
+  const file = researchCancel
+  researchCancel = ''
+  await $.fs.write(file, 'cancel').catch(() => undefined)
+}
+
+export const RESEARCH_COST: Record<'mini' | 'pro', string> = { mini: '4-110 credits', pro: '15-250 credits' }
+
+// The research-only helper job that Add research starts beside the running critics.
+export function buildResearchJob(mode: 'mini' | 'pro', base: string, stateFile: string): { job: Record<string, unknown>; files: { status: string; out: string } } {
+  const files = { status: `${base}-research.status.json`, out: `${base}-research.out.json` }
+  const job = {
+    stallSec: STALL_SEC,
+    // Tavily research can take up to 10 minutes; the helper gives up after that.
+    hardSec: 660,
+    cancelFile: `${base}-research-cancel`,
+    doneFile: `${base}-research-done`,
+    stateFile,
+    planFile: `${base}-research-plan.md`,
+    system: '',
+    slots: [],
+    facts: { researchOnly: true, research: mode, maxClaims: 0, searchDepth: 'basic', resultsPerClaim: 0, extractors: [], statusFile: files.status, outFile: files.out },
+  }
+  return { job, files }
+}
+
+async function addResearch($: EngineInterface, mode: 'mini' | 'pro'): Promise<void> {
+  const r = await read($, run)
+  if (r.phase !== 'critiquing' || r.research.status !== 'off') return
+  await update($, run, (x): Run => ({ ...x, isPickingResearch: false, research: { status: 'running', note: `${mode}, starting`, text: '' } }))
+  try {
+    const temp = (await $.env.get('TEMP')) ?? (await $.env.get('TMP'))
+    if (!temp) throw new Error('no TEMP folder to hand the plan to the helper')
+    const local = (await $.env.get('LOCALAPPDATA')) ?? temp
+    const win = (p: string) => p.replace(/\//g, '\\')
+    const base = `${win(temp)}\\prompt-tools-${await $.clock.now()}`
+    const { job, files } = buildResearchJob(mode, base, `${win(local)}\\prompt-tools\\providers.json`)
+    await $.fs.write(String(job.planFile), cap(r.planText, PLAN_CAP, 'plan'))
+    const jobFile = `${base}-research-job.json`
+    await $.fs.write(jobFile, JSON.stringify(job))
+    const ran = await $.process.run(launchArgv(`${win($.plugin.root)}\\worker\\critique.ps1`, jobFile), { timeoutMs: LAUNCH_TIMEOUT_MS })
+    if (ran.exitCode !== 0) throw new Error(`could not start the helper (${ran.stderr.trim().slice(0, 200) || `exit ${ran.exitCode}`})`)
+    researchFiles = files
+    researchCancel = String(job.cancelFile)
+  } catch (err) {
+    await update($, run, (x): Run => ({ ...x, research: { status: 'failed', note: String(err).replace(/^Error: /, '').slice(0, 200), text: '' } }))
+  }
+}
+
 async function cancel($: EngineInterface): Promise<void> {
   generation += 1
+  await stopResearch($)
   if (activeCancel !== '') {
     const file = activeCancel
     activeCancel = ''
@@ -788,8 +842,8 @@ export function slotCells(s: Slot): Cells {
   return { left: left(s.usage), right: s.note || 'starting', tone: 'running' }
 }
 
-export function factsCells(f: Facts): Cells {
-  const left = f.note ? `Fact check | ${f.note}` : 'Fact check'
+export function factsCells(f: Facts, label = 'Fact check'): Cells {
+  const left = f.note ? `${label} | ${f.note}` : label
   if (f.status === 'running') return { left, right: 'running', tone: 'running' }
   if (f.status === 'failed') return { left, right: 'failed', tone: 'error' }
   return { left, right: 'done', tone: 'success' }
@@ -797,9 +851,31 @@ export function factsCells(f: Facts): Cells {
 
 type UI = ReturnType<EngineInterface['ui']['resolve']>
 
+// Add research appears only while the critics run, and only when research is not already
+// part of the critique (the plugin setting) or added: first one button, then mini or pro.
+function researchButtons($: EngineInterface, Button: UI['Button'], prefix: string, r: Run, settings: Settings) {
+  if (r.phase !== 'critiquing' || r.research.status !== 'off' || settings.research !== 'off') return null
+  if (!r.isPickingResearch) {
+    return <Button key={`${prefix}add-research`} label="Add research" onPress={() => void update($, run, (x): Run => ({ ...x, isPickingResearch: true }))} />
+  }
+  return [
+    <Button key={`${prefix}research-mini`} label={`Research mini (${RESEARCH_COST.mini})`} onPress={() => {
+      $.clock.after(0, () => void addResearch($, 'mini'))
+    }} />,
+    <Button key={`${prefix}research-pro`} label={`Research pro (${RESEARCH_COST.pro})`} onPress={() => {
+      $.clock.after(0, () => void addResearch($, 'pro'))
+    }} />,
+    <Button key={`${prefix}research-back`} label="No research" onPress={() => void update($, run, (x): Run => ({ ...x, isPickingResearch: false }))} />,
+  ]
+}
+
 function statusRows(ui: UI, prefix: string, r: Run) {
   const { Box, Text } = ui
-  const cells = [...r.slots.map(s => ({ key: s.id, ...slotCells(s) })), ...(r.facts.status !== 'off' ? [{ key: 'facts', ...factsCells(r.facts) }] : [])]
+  const cells = [
+    ...r.slots.map(s => ({ key: s.id, ...slotCells(s) })),
+    ...(r.facts.status !== 'off' ? [{ key: 'facts', ...factsCells(r.facts) }] : []),
+    ...(r.research.status !== 'off' ? [{ key: 'research', ...factsCells(r.research, 'Deep research') }] : []),
+  ]
   return cells.map(c => (
     <Box key={`${prefix}-${c.key}`} flexDirection="row" justifyContent="space-between" gap={2}>
       <Box flexShrink={1}>
@@ -863,7 +939,6 @@ export const register: Register = (on, options) => {
     const { Box, Button, Text } = $.ui.resolve(e)
     const busy = r.phase === 'critiquing' || r.phase === 'merging'
     const id = e.props.tool_use_id
-    const research = researchFor(await read($, researchChoice), settings.research)
     return (
       <Box flexDirection="column">
         {row}
@@ -881,11 +956,7 @@ export const register: Register = (on, options) => {
               $.clock.after(0, () => void start($, settings, id))
             }} />
           )}
-          {!busy && e.props.isRunning && (
-            <Button key="row-research" label={researchLabel(research)} onPress={() => {
-              void update($, researchChoice, (): ResearchChoice => nextResearch(research))
-            }} />
-          )}
+          {mine && researchButtons($, Button, 'row-', r, settings)}
           {mine && r.phase === 'critiquing' && r.slots.filter(s => s.status === 'done').length >= MERGE_NOW_AT && (
             <Button key="row-merge-now" label="Merge now" onPress={() => {
               $.clock.after(0, () => void mergeNow($))
@@ -903,7 +974,6 @@ export const register: Register = (on, options) => {
     const r = await read($, run)
     if (r.pendingFill) $.clock.after(0, () => void flushPending($))
     const busy = await read($, isBusy)
-    const research = researchFor(await read($, researchChoice), settings.research)
     const prompt = (
       <Button
         key="prompt"
@@ -924,9 +994,6 @@ export const register: Register = (on, options) => {
           <Button key="start" label="Critique Plan" onPress={() => {
             $.clock.after(0, () => void start($, settings, ''))
           }} />
-          <Button key="research" label={researchLabel(research)} onPress={() => {
-            void update($, researchChoice, (): ResearchChoice => nextResearch(research))
-          }} />
         </Box>
       )
     }
@@ -942,6 +1009,7 @@ export const register: Register = (on, options) => {
           {r.phase === 'merging' && <Text key="merging">Merging with Sonnet</Text>}
           <Box flexDirection="row" gap={1}>
             {prompt}
+            {researchButtons($, Button, '', r, settings)}
             {r.phase === 'critiquing' && r.slots.filter(s => s.status === 'done').length >= MERGE_NOW_AT && (
               <Button key="merge-now" label="Merge now" onPress={() => {
                 $.clock.after(0, () => void mergeNow($))

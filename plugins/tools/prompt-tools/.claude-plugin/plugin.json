@@ -1,6 +1,6 @@
 {
   "name": "prompt-tools",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Two buttons above the message box: Prompt Master rewrites a rough prompt with Sonnet, and Critique Plan has five free models critique the session's plan, checks its facts on the web and merges it all into one brief. Nothing is ever sent for you.",
   "types": "./types/index.d.ts",
   "userConfig": {
