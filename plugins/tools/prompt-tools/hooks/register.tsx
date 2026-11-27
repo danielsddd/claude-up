@@ -251,20 +251,25 @@ export type FactsOut = {
   note?: string
 }
 
-// The progress line a slot shows while its critic runs.
+// A running critic's status for the right-hand column: "thinking 56s".
 export function progressNote(s: SlotStatus): string {
-  const t = `${s.seconds}s`
-  const fell = s.tried.length > 0 ? `, after ${s.tried.length} fallback${s.tried.length === 1 ? '' : 's'}` : ''
-  if (s.phase === 'thinking') return `thinking, ${t}${fell}`
-  if (s.phase === 'writing') return `writing, ${s.chars.toLocaleString('en-US')} chars, ${t}${fell}`
-  return `waiting for a reply, ${t}${fell}`
+  const phase = s.phase === 'thinking' || s.phase === 'writing' ? s.phase : 'waiting'
+  return `${phase} ${s.seconds}s`
+}
+
+// What a running critic has produced so far, for the left column.
+export function progressDetail(s: SlotStatus): string {
+  const parts: string[] = []
+  if (s.phase === 'writing' && s.chars > 0) parts.push(`${s.chars.toLocaleString('en-US')} chars`)
+  if (s.tried.length > 0) parts.push(`after ${s.tried.length} fallback${s.tried.length === 1 ? '' : 's'}`)
+  return parts.join(', ')
 }
 
 export function factsNote(s: FactsStatus): string {
-  if (s.phase === 'extracting') return `finding the claims to check, ${s.seconds}s`
-  if (s.phase === 'searching') return `searching ${s.searched}/${s.claims} claims, ${s.seconds}s`
-  if (s.phase === 'researching') return `deep research running, ${s.seconds}s`
-  return s.note || s.phase
+  if (s.phase === 'extracting') return 'finding the claims to check'
+  if (s.phase === 'searching') return `searching ${s.searched}/${s.claims} claims`
+  if (s.phase === 'researching') return 'deep research'
+  return s.note || 'running'
 }
 
 // The search evidence as the merge reads it.
@@ -362,9 +367,9 @@ async function sessionPlan($: EngineInterface): Promise<Found | null> {
   const p = await read($, lastPlan)
   if (p.path !== '') {
     const text = await $.fs.read(p.path).catch(() => '')
-    if (typeof text === 'string' && text.trim() !== '') return { label: baseName(p.path), text }
+    if (typeof text === 'string' && text.trim() !== '') return { label: planTitle(text, baseName(p.path)), text }
   }
-  if (p.text.trim() !== '') return { label: p.label || 'proposed plan', text: p.text }
+  if (p.text.trim() !== '') return { label: planTitle(p.text, p.label || 'proposed plan'), text: p.text }
   return null
 }
 
@@ -469,7 +474,7 @@ async function poll($: EngineInterface, gen: number, files: JobFiles, deadline: 
     } else {
       open += 1
       if (gen !== generation) return
-      await update($, run, r => setSlot(r, id, { note: s ? progressNote(s) : 'starting', ...(s?.model ? { name: s.model } : {}) }))
+      await update($, run, r => setSlot(r, id, { note: s ? progressNote(s) : 'starting', usage: s ? progressDetail(s) : '', ...(s?.model ? { name: s.model } : {}) }))
     }
   }
   if (files.facts && before.facts.status === 'running') {
@@ -664,16 +669,43 @@ export function rowBrief(brief: string): string {
   return `${lines.slice(0, ROW_BRIEF_LINES).join('\n')}\n… ${lines.length - ROW_BRIEF_LINES} more lines in the message box once you answer the plan card.`
 }
 
-function slotLine(s: Slot): string {
-  if (s.status === 'done') return `${s.name}: done${s.note ? ` (${s.note})` : ''}${s.usage ? ` | ${s.usage}` : ''}`
-  if (s.status === 'failed') return `${s.name}: failed, ${s.error}`
-  return `${s.name}: ${s.note || 'starting'}`
+type Tone = 'success' | 'error' | 'running'
+export type Cells = { left: string; right: string; tone: Tone }
+
+// A status row: the model and its details on the left, its state in a column on the right.
+export function slotCells(s: Slot): Cells {
+  const left = (detail: string) => (detail ? `${s.name} | ${detail}` : s.name)
+  if (s.status === 'done') return { left: left(s.usage), right: `done ${s.note}`.trim(), tone: 'success' }
+  if (s.status === 'failed') return { left: left(s.error), right: 'failed', tone: 'error' }
+  return { left: left(s.usage), right: s.note || 'starting', tone: 'running' }
 }
 
-function factsLine(f: Facts): string {
-  if (f.status === 'running') return `Fact check: ${f.note || 'starting'}`
-  if (f.status === 'failed') return `Fact check: failed, ${f.note}`
-  return `Fact check: ${f.note || 'done'}`
+export function factsCells(f: Facts): Cells {
+  const left = f.note ? `Fact check | ${f.note}` : 'Fact check'
+  if (f.status === 'running') return { left, right: 'running', tone: 'running' }
+  if (f.status === 'failed') return { left, right: 'failed', tone: 'error' }
+  return { left, right: 'done', tone: 'success' }
+}
+
+// The first Markdown heading of the plan, so the header names the plan, not its file.
+export function planTitle(text: string, fallback: string): string {
+  const h = /^#{1,3}\s+(.+)$/m.exec(text)?.[1]?.trim()
+  return h ? h.replace(/^Plan:\s*/i, '') : fallback
+}
+
+type UI = ReturnType<EngineInterface['ui']['resolve']>
+
+function statusRows(ui: UI, prefix: string, r: Run) {
+  const { Box, Text } = ui
+  const cells = [...r.slots.map(s => ({ key: s.id, ...slotCells(s) })), ...(r.facts.status !== 'off' ? [{ key: 'facts', ...factsCells(r.facts) }] : [])]
+  return cells.map(c => (
+    <Box key={`${prefix}-${c.key}`} flexDirection="row" justifyContent="space-between" gap={2}>
+      <Box flexShrink={1}>
+        <Text dimColor wrap="truncate-end">{c.left}</Text>
+      </Box>
+      <Text color={c.tone === 'running' ? undefined : c.tone} dimColor={c.tone === 'running'} bold={c.tone !== 'running'}>{c.right}</Text>
+    </Box>
+  ))
 }
 
 export const register: Register = (on, options) => {
@@ -730,8 +762,7 @@ export const register: Register = (on, options) => {
     return (
       <Box flexDirection="column">
         {row}
-        {mine && r.slots.map(s => <Text key={`row-${s.id}`} dimColor={s.status !== 'failed'}>{slotLine(s)}</Text>)}
-        {mine && r.facts.status !== 'off' && <Text key="row-facts" dimColor={r.facts.status !== 'failed'}>{factsLine(r.facts)}</Text>}
+        {mine && statusRows($.ui.resolve(e), 'row', r)}
         {mine && r.phase === 'merging' && <Text key="row-merging">Merging with Sonnet</Text>}
         {mine && r.error !== '' && <Text key="row-error" color="error">{r.error}</Text>}
         {mine && r.phase === 'review' && briefOf(r) !== '' && <Text key="row-brief">{rowBrief(briefOf(r))}</Text>}
@@ -787,10 +818,7 @@ export const register: Register = (on, options) => {
     }
 
     const header = <Text key="plan" bold>Critique Plan: {r.planLabel}</Text>
-    const lines = [
-      ...r.slots.map(s => <Text key={`slot-${s.id}`} dimColor={s.status !== 'failed'}>{slotLine(s)}</Text>),
-      ...(r.facts.status !== 'off' ? [<Text key="facts" dimColor={r.facts.status !== 'failed'}>{factsLine(r.facts)}</Text>] : []),
-    ]
+    const lines = statusRows($.ui.resolve(e), 'slot', r)
 
     if (r.phase === 'critiquing' || r.phase === 'merging') {
       return (

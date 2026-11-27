@@ -139,7 +139,13 @@ function Add-Usage($c, [int]$tokens) {
   $u.totalRequests = [int]$u.totalRequests + 1
   $u.totalTokens = [long]$u.totalTokens + $tokens
   $all[$k] = $u
-  try { Write-Json $usagePath $all } catch {}
+  # The folder may not exist yet (providers.json is only written when a switch changes):
+  # without it the write failed and every run's total restarted from zero.
+  try {
+    $dir = Split-Path -Parent $usagePath
+    if (-not (Test-Path -LiteralPath $dir)) { [void](New-Item -ItemType Directory -Path $dir -Force) }
+    Write-Json $usagePath $all
+  } catch {}
   return $u
 }
 
