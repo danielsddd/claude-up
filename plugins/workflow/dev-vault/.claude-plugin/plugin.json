@@ -1,7 +1,7 @@
 {
   "name": "dev-vault",
   "version": "0.1.0",
-  "description": "A plain-markdown second brain for Claude Code: /preserve saves a session handoff, /pickup loads it in the next session, /log-fix records solved bugs. Zero tokens until a note is read.",
+  "description": "A plain-markdown knowledge base for Claude Code: /preserve saves a session handoff, /pickup loads it in the next session, /log-fix records solved bugs. Zero tokens until a note is read.",
   "license": "MIT",
   "keywords": ["claude-code", "memory", "obsidian", "handoff", "skills"],
   "author": {

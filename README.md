@@ -24,7 +24,7 @@ Backdrops and themes. UI only, no model calls.
 
 | Plugin | What it does | Model tokens |
 | --- | --- | --- |
-| [damn-ddd](plugins/visuals/damn-ddd) | Animated scenes behind the chat while a long reply runs | 0 |
+| [damn-ddd](plugins/visuals/damn-ddd) | An animated backdrop behind the chat while a long reply runs | 0 |
 
 ### Tools
 
@@ -40,7 +40,7 @@ Skill packs that organize work across sessions and projects.
 
 | Plugin | What it does | Model tokens |
 | --- | --- | --- |
-| [dev-vault](plugins/workflow/dev-vault) | A markdown second brain: session handoffs, decisions and solved bugs | 0 at rest, 1-3k per command |
+| [dev-vault](plugins/workflow/dev-vault) | A markdown knowledge base: session handoffs, decisions and solved bugs | 0 at rest, 1-3k per command |
 | [profiles](plugins/workflow/profiles) | Focuses Claude on one folder: matching skills, scoped permissions, run steps | 0 at rest, 3-8k per run |
 
 ## 3. Install

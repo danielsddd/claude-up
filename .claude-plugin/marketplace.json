@@ -8,7 +8,7 @@
     {
       "name": "damn-ddd",
       "source": "./plugins/visuals/damn-ddd",
-      "description": "An animated show behind the chat while a long reply runs. Zero model tokens."
+      "description": "An animated backdrop behind the chat while a long reply runs. Zero model tokens."
     },
     {
       "name": "prompt-tools",
@@ -18,7 +18,7 @@
     {
       "name": "dev-vault",
       "source": "./plugins/workflow/dev-vault",
-      "description": "A plain-markdown second brain: /preserve, /pickup and /log-fix keep session handoffs and solved bugs in a vault folder. Zero tokens at rest."
+      "description": "A plain-markdown knowledge base: /preserve, /pickup and /log-fix keep session handoffs and solved bugs in a vault folder. Zero tokens at rest."
     },
     {
       "name": "profiles",

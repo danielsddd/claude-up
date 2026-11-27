@@ -1,13 +1,13 @@
 # damn-ddd
 
-Animated scenes behind the chat while a long Claude Code reply runs.
+An animated backdrop behind the chat that shows a long Claude Code reply is still running.
 
 ![damn-ddd](https://github.com/danielsddd/claude-up/releases/download/v0.2.0/damn-ddd.png)
 
-- **damn1:** a cowboy whips a bucket of tokens.
-- **damn2:** a hero cuts an evil token in two.
+- Two illustrated scenes, `damn1` and `damn2`, alternate on each long reply.
+- It ends on its own when the reply finishes.
 
-The two alternate on each long reply. Desktop and mobile apps only.
+It draws in the desktop and mobile apps only.
 
 ## Install
 
@@ -22,7 +22,7 @@ The two alternate on each long reply. Desktop and mobile apps only.
 | Automatic | Starts when one reply runs 10 minutes |
 | Manual | `/damn1` or `/damn2` |
 | Dismiss | Automatic when the reply finishes; sooner: click an empty part of the background, right-click → **Send him off**, or `/damn1 stop` |
-| Delay | Option **Show starts after (seconds)**, default 600 |
+| Delay | Setting **Show starts after (seconds)**, default 600 |
 
 ## How it works
 
