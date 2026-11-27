@@ -8,6 +8,8 @@ export type Slot = {
   note: string
   error: string
   text: string
+  // After the answer: "2/1000 daily requests | 4.2/38k tokens".
+  usage: string
 }
 
 // The web fact check. `text` is the search evidence handed to the merge.

@@ -1,45 +1,146 @@
 {
-  "about": "Critique Plan lineup: free models only. Picked 27.11.2026 from live tests on plans with planted flaws: speed first, then how many flaws each caught. Each slot falls back in order when a model is rate-limited, retired, out of free quota, silent, or slower than its maxSec.",
+  "about": "Critique Plan lineup: free models only. Picked 27.11.2026 from live tests on plans with planted flaws: high or medium reasoning (few plans a day), each within a time limit. Each slot falls back in order when a model is rate-limited, retired, out of free quota, silent, or slower than its maxSec.",
   "slots": [
     {
       "id": "facts",
       "focus": "Check every library, API, version, model ID, limit and price the plan relies on; flag anything likely outdated or wrong, and say how sure you are.",
       "candidates": [
-        { "name": "Nemotron 3 Ultra", "keyEnv": "NVIDIA_API_KEY", "model": "nvidia/nemotron-3-ultra-550b-a55b", "params": { "max_tokens": 8000, "reasoning_effort": "low" }, "planCap": 60000, "maxSec": 150 },
-        { "name": "Gemini Flash-Lite", "keyEnv": "GEMINI_API_KEY", "model": "gemini-flash-lite-latest", "params": { "max_tokens": 8000 }, "planCap": 60000 }
+        {
+          "name": "Nemotron 3 Ultra",
+          "keyEnv": "NVIDIA_API_KEY",
+          "model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "params": {
+            "max_tokens": 8000,
+            "reasoning_effort": "medium"
+          },
+          "planCap": 60000,
+          "maxSec": 180
+        },
+        {
+          "name": "Gemini Flash-Lite",
+          "keyEnv": "GEMINI_API_KEY",
+          "model": "gemini-flash-lite-latest",
+          "params": {
+            "max_tokens": 8000
+          },
+          "planCap": 60000
+        }
       ]
     },
     {
       "id": "whole",
       "focus": "Judge the plan as a whole: missing steps, wrong order, hidden dependencies, and what will break in practice.",
       "candidates": [
-        { "name": "GPT-OSS 20B", "keyEnv": "GROQ_API_KEY", "model": "openai/gpt-oss-20b", "params": { "max_completion_tokens": 6000, "reasoning_effort": "medium" }, "planCap": 12000, "maxSec": 90 },
-        { "name": "Nemotron 3.5 Lightning", "keyEnv": "NVIDIA_API_KEY", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "params": { "max_tokens": 12000, "reasoning_effort": "low" }, "planCap": 60000 }
+        {
+          "name": "GPT-OSS 20B",
+          "keyEnv": "GROQ_API_KEY",
+          "model": "openai/gpt-oss-20b",
+          "params": {
+            "max_completion_tokens": 6000,
+            "reasoning_effort": "high"
+          },
+          "planCap": 12000,
+          "maxSec": 120
+        },
+        {
+          "name": "Nemotron 3.5 Lightning",
+          "keyEnv": "NVIDIA_API_KEY",
+          "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "params": {
+            "max_tokens": 12000,
+            "reasoning_effort": "medium"
+          },
+          "planCap": 60000
+        }
       ]
     },
     {
       "id": "engineering",
       "focus": "Focus on software engineering: architecture, correctness, data flow, error handling and the test strategy.",
       "candidates": [
-        { "name": "GPT-OSS 120B", "keyEnv": "GROQ_API_KEY", "model": "openai/gpt-oss-120b", "params": { "max_completion_tokens": 6000, "reasoning_effort": "medium" }, "planCap": 12000, "maxSec": 90 },
-        { "name": "Nemotron 3.5 Lightning", "keyEnv": "NVIDIA_API_KEY", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "params": { "max_tokens": 12000, "reasoning_effort": "low" }, "planCap": 60000 }
+        {
+          "name": "GPT-OSS 120B",
+          "keyEnv": "GROQ_API_KEY",
+          "model": "openai/gpt-oss-120b",
+          "params": {
+            "max_completion_tokens": 6000,
+            "reasoning_effort": "high"
+          },
+          "planCap": 12000,
+          "maxSec": 120
+        },
+        {
+          "name": "Nemotron 3.5 Lightning",
+          "keyEnv": "NVIDIA_API_KEY",
+          "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "params": {
+            "max_tokens": 12000,
+            "reasoning_effort": "medium"
+          },
+          "planCap": 60000
+        }
       ]
     },
     {
       "id": "security",
       "focus": "Focus on security, data safety, privacy, cost and quotas: secrets, destructive steps, missing backups, unbounded calls.",
       "candidates": [
-        { "name": "Gemini 3.5 Flash", "keyEnv": "GEMINI_API_KEY", "model": "gemini-3.5-flash", "params": { "max_tokens": 12000 }, "planCap": 60000, "maxSec": 120 },
-        { "name": "Gemini Flash-Lite", "keyEnv": "GEMINI_API_KEY", "model": "gemini-flash-lite-latest", "params": { "max_tokens": 12000 }, "planCap": 60000 },
-        { "name": "ERNIE 5.5 Flash", "keyEnv": "OPENROUTER_API_KEY", "model": "baidu/ernie-5.5-flash-preview:free", "params": { "max_tokens": 12000 }, "planCap": 60000 }
+        {
+          "name": "Gemini 3.5 Flash",
+          "keyEnv": "GEMINI_API_KEY",
+          "model": "gemini-3.5-flash",
+          "params": {
+            "max_tokens": 12000,
+            "reasoning_effort": "high"
+          },
+          "planCap": 60000,
+          "maxSec": 150
+        },
+        {
+          "name": "Gemini Flash-Lite",
+          "keyEnv": "GEMINI_API_KEY",
+          "model": "gemini-flash-lite-latest",
+          "params": {
+            "max_tokens": 12000
+          },
+          "planCap": 60000
+        },
+        {
+          "name": "ERNIE 5.5 Flash",
+          "keyEnv": "OPENROUTER_API_KEY",
+          "model": "baidu/ernie-5.5-flash-preview:free",
+          "params": {
+            "max_tokens": 12000
+          },
+          "planCap": 60000
+        }
       ]
     },
     {
       "id": "simplicity",
       "focus": "Push back like a careful senior engineer: what is over-engineered, what to cut, and the simplest approach that still works.",
       "candidates": [
-        { "name": "Nemotron 3.5 Super", "keyEnv": "NVIDIA_API_KEY", "model": "nvidia/nemotron-3.5-super-vl-120b-a12b", "params": { "max_tokens": 12000 }, "planCap": 60000, "maxSec": 120 },
-        { "name": "Nemotron 3.5 Lightning", "keyEnv": "NVIDIA_API_KEY", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "params": { "max_tokens": 12000, "reasoning_effort": "low" }, "planCap": 60000 }
+        {
+          "name": "Nemotron 3.5 Super",
+          "keyEnv": "NVIDIA_API_KEY",
+          "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "params": {
+            "max_tokens": 12000,
+            "reasoning_effort": "high"
+          },
+          "planCap": 60000,
+          "maxSec": 150
+        },
+        {
+          "name": "Nemotron 3.5 Lightning",
+          "keyEnv": "NVIDIA_API_KEY",
+          "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "params": {
+            "max_tokens": 12000,
+            "reasoning_effort": "medium"
+          },
+          "planCap": 60000
+        }
       ]
     }
   ],
@@ -48,8 +149,25 @@
     "searchDepth": "advanced",
     "resultsPerClaim": 3,
     "extractors": [
-      { "name": "Gemini Flash-Lite", "keyEnv": "GEMINI_API_KEY", "model": "gemini-flash-lite-latest", "params": { "max_tokens": 4000 }, "planCap": 30000 },
-      { "name": "Nemotron 3.5 Lightning", "keyEnv": "NVIDIA_API_KEY", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "params": { "max_tokens": 16000, "reasoning_effort": "low" }, "planCap": 30000 }
+      {
+        "name": "Gemini Flash-Lite",
+        "keyEnv": "GEMINI_API_KEY",
+        "model": "gemini-flash-lite-latest",
+        "params": {
+          "max_tokens": 4000
+        },
+        "planCap": 30000
+      },
+      {
+        "name": "Nemotron 3.5 Lightning",
+        "keyEnv": "NVIDIA_API_KEY",
+        "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+        "params": {
+          "max_tokens": 16000,
+          "reasoning_effort": "low"
+        },
+        "planCap": 30000
+      }
     ]
   },
   "endpoints": {

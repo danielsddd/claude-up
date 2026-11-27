@@ -115,6 +115,34 @@ function Save-State {
   Write-Json ([string]$spec.stateFile) $o
 }
 
+# ---------- usage.json: local counts per model (today and in total), shown next to each critic ----------
+
+$usagePath = $null
+if ($spec.stateFile) { $usagePath = Join-Path (Split-Path -Parent ([string]$spec.stateFile)) 'usage.json' }
+
+function Add-Usage($c, [int]$tokens) {
+  if (-not $usagePath -or -not $c) { return $null }
+  $all = [ordered]@{}
+  try {
+    if (Test-Path -LiteralPath $usagePath) {
+      $raw = [IO.File]::ReadAllText($usagePath, $utf8) | ConvertFrom-Json
+      foreach ($p in $raw.PSObject.Properties) { $all[$p.Name] = $p.Value }
+    }
+  } catch {}
+  $k = "$($c.keyEnv)|$($c.model)"
+  $u = $all[$k]
+  $day = Today
+  if (-not $u) { $u = [pscustomobject]@{ day = $day; todayRequests = 0; todayTokens = 0; totalRequests = 0; totalTokens = 0 } }
+  if ($u.day -ne $day) { $u.day = $day; $u.todayRequests = 0; $u.todayTokens = 0 }
+  $u.todayRequests = [int]$u.todayRequests + 1
+  $u.todayTokens = [long]$u.todayTokens + $tokens
+  $u.totalRequests = [int]$u.totalRequests + 1
+  $u.totalTokens = [long]$u.totalTokens + $tokens
+  $all[$k] = $u
+  try { Write-Json $usagePath $all } catch {}
+  return $u
+}
+
 function Get-Off([string]$keyEnv, [string]$model) {
   foreach ($k in @("$keyEnv|$model", "$keyEnv|*")) {
     $e = $state[$k]
@@ -154,7 +182,10 @@ function Write-SlotStatus($s) {
     phase = $s.phase; model = $name; tried = @($s.tried); chars = $s.text.Length
     reasoning = $s.reasoning; error = $s.error
     seconds = [int]([DateTime]::UtcNow - $s.runStart).TotalSeconds
+    tokens = $s.tokens; dayLimit = $s.dayLimit; dayLeft = $s.dayLeft
+    todayRequests = 0; totalTokens = 0
   }
+  if ($s.usage) { $o.todayRequests = [int]$s.usage.todayRequests; $o.totalTokens = [long]$s.usage.totalTokens }
   Write-Json $s.statusFile $o
   $s.written = [DateTime]::UtcNow
   $s.dirty = $false
@@ -182,7 +213,7 @@ function Start-Next($s) {
     try {
       $text = $plan
       if ($text.Length -gt [int]$c.planCap) { $text = $text.Substring(0, [int]$c.planCap) + "`n`n[plan cut at $($c.planCap) characters]" }
-      $body = [ordered]@{ model = [string]$c.model; stream = $true }
+      $body = [ordered]@{ model = [string]$c.model; stream = $true; stream_options = [ordered]@{ include_usage = $true } }
       if ($c.params) { foreach ($p in $c.params.PSObject.Properties) { $body[$p.Name] = $p.Value } }
       $body.messages = @(
         [ordered]@{ role = 'system'; content = "$($spec.system)`n$($s.focus)" },
@@ -193,6 +224,7 @@ function Start-Next($s) {
       $s.send = $client.SendAsync($req, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
       $s.text = New-Object Text.StringBuilder
       $s.reasoning = 0
+      $s.tokens = 0; $s.dayLimit = 0; $s.dayLeft = -1; $s.usage = $null
       $s.phase = 'connecting'
       $s.started = [DateTime]::UtcNow
       $s.last = [DateTime]::UtcNow
@@ -245,6 +277,7 @@ foreach ($sl in $spec.slots) {
     runStart = [DateTime]::UtcNow; started = [DateTime]::UtcNow; last = [DateTime]::UtcNow
     written = [DateTime]::MinValue; send = $null; reader = $null; line = $null; dirty = $true
     buf = (New-Object byte[] 65536); cbuf = (New-Object char[] 65536); decoder = $null; carry = ''
+    tokens = 0; dayLimit = 0; dayLeft = -1; usage = $null
   }
   Start-Next $s
   $slots += $s
@@ -253,6 +286,7 @@ foreach ($sl in $spec.slots) {
 function Finish-Slot($s) {
   if ($s.text.Length -gt 0) {
     [IO.File]::WriteAllText($s.outFile, $s.text.ToString(), $utf8)
+    $s.usage = Add-Usage $s.cand $s.tokens
     Close-Stream $s
     $s.phase = 'done'
     Write-SlotStatus $s
@@ -281,6 +315,9 @@ function Step-Slot($s) {
       Fail-Candidate $s (Get-HttpWhy $s.cand ([int]$resp.StatusCode) $raw)
       return
     }
+    # Groq reports the account's daily request limit and what is left; others report none.
+    try { $s.dayLimit = [int](@($resp.Headers.GetValues('x-ratelimit-limit-requests'))[0]) } catch {}
+    try { $s.dayLeft = [int](@($resp.Headers.GetValues('x-ratelimit-remaining-requests'))[0]) } catch {}
     # Read the stream in chunks: one SSE line per async read is far too slow in PowerShell.
     $s.reader = $resp.Content.ReadAsStreamAsync().Result
     $s.decoder = $utf8.GetDecoder()
@@ -313,6 +350,12 @@ function Step-Slot($s) {
         if ($e -is [System.Collections.IDictionary] -and $e.ContainsKey('message')) { $m = [string]$e['message'] }
         Fail-Candidate $s (Hide-Keys $m)
         return
+      }
+      # Token usage arrives in the last chunk (Groq also nests it under x_groq).
+      $groq = $null
+      if ($o['x_groq'] -is [System.Collections.IDictionary]) { $groq = $o['x_groq']['usage'] }
+      foreach ($u in @($o['usage'], $groq)) {
+        if ($u -is [System.Collections.IDictionary] -and $u.ContainsKey('total_tokens')) { $s.tokens = [int]$u['total_tokens'] }
       }
       if (-not $o.ContainsKey('choices') -or -not $o['choices'] -or $o['choices'].Count -eq 0) { continue }
       $delta = $o['choices'][0]['delta']

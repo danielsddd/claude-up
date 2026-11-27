@@ -207,7 +207,43 @@ export function launchArgv(script: string, job: string): string[] {
   ]
 }
 
-export type SlotStatus = { phase: string; model: string; tried: string[]; chars: number; reasoning: number; error: string; seconds: number }
+export type SlotStatus = {
+  phase: string
+  model: string
+  tried: string[]
+  chars: number
+  reasoning: number
+  error: string
+  seconds: number
+  // Usage after the answer: this run's tokens, the provider's daily request limit and
+  // what is left (Groq only; 0 and -1 elsewhere), and the local counts per model.
+  tokens?: number
+  dayLimit?: number
+  dayLeft?: number
+  todayRequests?: number
+  totalTokens?: number
+}
+
+// 950, 4.2k, 38k, 1.2M.
+export function tokenCount(n: number): string {
+  const trim = (x: number, d: number) => x.toFixed(d).replace(/\.0$/, '')
+  if (n < 1000) return String(n)
+  if (n < 1_000_000) return `${trim(n / 1000, n < 10_000 ? 1 : 0)}k`
+  return `${trim(n / 1_000_000, 1)}M`
+}
+
+// Minimal usage text: "2/1000 daily requests | 4.2k/38k tokens".
+export function usageNote(s: SlotStatus): string {
+  const parts: string[] = []
+  const limit = s.dayLimit ?? 0
+  const left = s.dayLeft ?? -1
+  if (limit > 0 && left >= 0) parts.push(`${limit - left}/${limit} daily requests`)
+  else if ((s.todayRequests ?? 0) > 0) parts.push(`${s.todayRequests} daily requests`)
+  const run = s.tokens ?? 0
+  const total = Math.max(s.totalTokens ?? 0, run)
+  if (run > 0) parts.push(`${tokenCount(run)}/${tokenCount(total)} tokens`)
+  return parts.join(' | ')
+}
 export type FactsStatus = { phase: string; claims: number; searched: number; note: string; seconds: number }
 export type FactsOut = {
   claims: { claim: string; quote?: string; sources?: { title: string; url: string; snippet: string }[]; error?: string }[]
@@ -365,7 +401,7 @@ async function start($: EngineInterface, settings: Settings, rowId: string): Pro
     rowId,
     planLabel: plan.label,
     planText: plan.text,
-    slots: lineup.slots.map(s => ({ id: s.id, name: s.candidates[0]?.name ?? s.id, status: 'running', note: 'starting', error: '', text: '' })),
+    slots: lineup.slots.map(s => ({ id: s.id, name: s.candidates[0]?.name ?? s.id, status: 'running', note: 'starting', error: '', text: '', usage: '' })),
     facts: settings.factCheck ? { status: 'running', note: 'starting', text: '' } : FACTS_OFF,
   }))
   await launch($, lineup, settings, lineup.slots.map(s => s.id), settings.factCheck, gen)
@@ -424,7 +460,7 @@ async function poll($: EngineInterface, gen: number, files: JobFiles, deadline: 
       await update($, run, r =>
         answer === ''
           ? setSlot(r, id, { status: 'failed', error: 'empty reply', note: '' })
-          : setSlot(r, id, { status: 'done', name: s.model || id, text: cap(answer, CRITIQUE_CAP, 'critique'), note: `${s.seconds}s` }),
+          : setSlot(r, id, { status: 'done', name: s.model || id, text: cap(answer, CRITIQUE_CAP, 'critique'), note: `${s.seconds}s`, usage: usageNote(s) }),
       )
     } else if (s?.phase === 'failed') {
       if (gen !== generation) return
@@ -557,7 +593,7 @@ async function retryFailed($: EngineInterface, settings: Settings): Promise<void
   const gen = generation
   await update($, run, x => {
     let next: Run = x
-    for (const id of ids) next = setSlot(next, id, { status: 'running', note: 'starting', error: '' })
+    for (const id of ids) next = setSlot(next, id, { status: 'running', note: 'starting', error: '', usage: '' })
     if (facts) next = { ...next, facts: { status: 'running', note: 'starting', text: '' } }
     return next
   })
@@ -629,7 +665,7 @@ export function rowBrief(brief: string): string {
 }
 
 function slotLine(s: Slot): string {
-  if (s.status === 'done') return `${s.name}: done${s.note ? ` (${s.note})` : ''}`
+  if (s.status === 'done') return `${s.name}: done${s.note ? ` (${s.note})` : ''}${s.usage ? ` | ${s.usage}` : ''}`
   if (s.status === 'failed') return `${s.name}: failed, ${s.error}`
   return `${s.name}: ${s.note || 'starting'}`
 }
