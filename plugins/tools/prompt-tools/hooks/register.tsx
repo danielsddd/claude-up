@@ -367,9 +367,9 @@ async function sessionPlan($: EngineInterface): Promise<Found | null> {
   const p = await read($, lastPlan)
   if (p.path !== '') {
     const text = await $.fs.read(p.path).catch(() => '')
-    if (typeof text === 'string' && text.trim() !== '') return { label: planTitle(text, baseName(p.path)), text }
+    if (typeof text === 'string' && text.trim() !== '') return { label: baseName(p.path), text }
   }
-  if (p.text.trim() !== '') return { label: planTitle(p.text, p.label || 'proposed plan'), text: p.text }
+  if (p.text.trim() !== '') return { label: p.label || 'proposed plan', text: p.text }
   return null
 }
 
@@ -687,12 +687,6 @@ export function factsCells(f: Facts): Cells {
   return { left, right: 'done', tone: 'success' }
 }
 
-// The first Markdown heading of the plan, so the header names the plan, not its file.
-export function planTitle(text: string, fallback: string): string {
-  const h = /^#{1,3}\s+(.+)$/m.exec(text)?.[1]?.trim()
-  return h ? h.replace(/^Plan:\s*/i, '') : fallback
-}
-
 type UI = ReturnType<EngineInterface['ui']['resolve']>
 
 function statusRows(ui: UI, prefix: string, r: Run) {
@@ -817,7 +811,7 @@ export const register: Register = (on, options) => {
       )
     }
 
-    const header = <Text key="plan" bold>Critique Plan: {r.planLabel}</Text>
+    const header = <Text key="plan" bold>Critique Plan</Text>
     const lines = statusRows($.ui.resolve(e), 'slot', r)
 
     if (r.phase === 'critiquing' || r.phase === 'merging') {
