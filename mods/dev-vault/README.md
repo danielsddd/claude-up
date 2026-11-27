@@ -2,6 +2,8 @@
 
 A plain-markdown second brain for Claude Code: session handoffs, decisions and solved bugs in one folder, opened in Obsidian or any editor.
 
+![dev-vault: /preserve and /log-fix write to the vault, /pickup reads it in the next session](https://github.com/danielsddd/claude-up/releases/download/v0.3.0/dev-vault.png)
+
 - **No server, no MCP:** the skills read and write markdown files in the folder named by `DEV_VAULT`.
 - **One folder per project:** a `.obsidian-project` link in the repo points at that project's notes.
 - **Reads little:** `/pickup` loads one handoff and only the decisions it links; nothing scans the vault.
