@@ -5,7 +5,7 @@ Two buttons above the Claude Code message box: **Prompt Master** rewrites a roug
 ![Prompt Master: a rough draft rewritten into a clear prompt](https://github.com/danielsddd/claude-up/releases/download/v0.2.0/prompt-tools.png)
 
 - **Prompt Master** rewrites the draft with Claude Sonnet and keeps your intent, language and every point. If the rewrite is cut off, fails, or you kept typing, your draft stays as it was.
-- **Critique Plan** sends the plan Claude wrote in plan mode to five critics at once, each with its own focus: facts and versions, the plan as a whole, engineering, security and cost, and simplicity. When a model is rate limited, out of free quota or silent, the next one in its slot takes over.
+- **Critique Plan** sends the plan Claude wrote in plan mode to five critics at once, each with its own focus: facts and versions, the plan as a whole, engineering, security and cost, and simplicity. When a model is rate limited, out of free quota, silent or slower than its time limit, the next one in its slot takes over. A full run takes about 1-2 minutes.
 - **Fact check:** a web search (Tavily) checks the libraries, versions and APIs the plan names, and the brief marks each claim ✓, ✗ or ? with its source.
 - Sonnet merges everything into one brief: Must fix, Worth considering, Fact check, Reviewers disagreed, Changes to make. The brief goes into your message box. Nothing is ever sent for you.
 - **Merge now** appears once two critics have answered, so you don't have to wait for the slow reasoning models.
@@ -22,8 +22,8 @@ Critique Plan reads free API keys from environment variables. A missing key only
 
 | Variable | Used for |
 | --- | --- |
-| `NVIDIA_API_KEY` | Mistral Large 4, Kimi K3.1 Pro, Nemotron (build.nvidia.com) |
-| `GROQ_API_KEY` | GPT-OSS 120B |
+| `NVIDIA_API_KEY` | Nemotron 3 Ultra, 3.5 Super and 3.5 Lightning (build.nvidia.com) |
+| `GROQ_API_KEY` | GPT-OSS 20B and 120B |
 | `GEMINI_API_KEY` | Gemini 3.5 Flash, Flash-Lite, the claim extractor |
 | `OPENROUTER_API_KEY` | ERNIE 5.5 Flash, free models only |
 | `TAVILY_API_KEY` | the fact check |
@@ -34,7 +34,8 @@ Critique Plan reads free API keys from environment variables. A missing key only
 | --- | --- |
 | Rewrite a draft | Type it, then press **Prompt Master** |
 | Critique a plan | Press **Critique Plan** under the proposed plan, or above the message box, or run `/critique-plan` |
-| Use the brief | It goes into the message box; review it and send it yourself |
+| Read the brief | It shows under the plan while the plan card is open, and above the message box afterwards |
+| Use the brief | Choose **No, keep planning** on the plan card: the brief goes into the message box; review it and send it yourself |
 | Rerun what failed | **Retry failed** |
 | Settings | `factCheck` (on) and `research` (`off`, `mini` or `pro`) in the plugin's settings |
 

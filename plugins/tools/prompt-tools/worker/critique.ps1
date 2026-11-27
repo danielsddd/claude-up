@@ -261,7 +261,10 @@ function Finish-Slot($s) {
 
 function Step-Slot($s) {
   $now = [DateTime]::UtcNow
-  if (($now - $s.started).TotalMilliseconds -gt $hardMs) { Fail-Candidate $s "no finished answer within $([int]($hardMs / 60000)) min"; return }
+  # A candidate's own maxSec (a slow model with a faster fallback) wins over the job's limit.
+  $limitMs = $hardMs
+  if ($s.cand -and $s.cand.maxSec) { $limitMs = [Math]::Min($hardMs, [int]$s.cand.maxSec * 1000) }
+  if (($now - $s.started).TotalMilliseconds -gt $limitMs) { Fail-Candidate $s "no finished answer within $([int]($limitMs / 1000))s"; return }
   if (($now - $s.last).TotalMilliseconds -gt $stallMs) {
     $what = 'no response'
     if ($s.reader) { $what = 'no new output' }

@@ -132,7 +132,7 @@ State each point once. Drop advice that would not change the plan. Treat claims 
 export const BRIEF_INTRO =
   'Here is my critique of your plan. It is not absolute and some suggestions may be wrong: read each one and check it yourself before deciding whether to revise.'
 
-export type Candidate = { name: string; keyEnv: string; model: string; params: Record<string, unknown>; planCap: number }
+export type Candidate = { name: string; keyEnv: string; model: string; params: Record<string, unknown>; planCap: number; maxSec?: number }
 export type Lineup = {
   slots: { id: string; focus: string; candidates: Candidate[] }[]
   factCheck: { maxClaims: number; searchDepth: string; resultsPerClaim: number; extractors: Candidate[] }
@@ -618,6 +618,16 @@ async function rememberFile($: EngineInterface, path: string): Promise<void> {
   await update($, lastPlan, (): LastPlan => ({ path, label: baseName(path), text: '' })).catch(() => undefined)
 }
 
+// The brief as the plan row shows it while the plan card is open (the card hides
+// the band above the message box): the whole brief up to a generous cap.
+export const ROW_BRIEF_LINES = 80
+
+export function rowBrief(brief: string): string {
+  const lines = brief.split('\n')
+  if (lines.length <= ROW_BRIEF_LINES) return brief
+  return `${lines.slice(0, ROW_BRIEF_LINES).join('\n')}\n… ${lines.length - ROW_BRIEF_LINES} more lines in the message box once you answer the plan card.`
+}
+
 function slotLine(s: Slot): string {
   if (s.status === 'done') return `${s.name}: done${s.note ? ` (${s.note})` : ''}`
   if (s.status === 'failed') return `${s.name}: failed, ${s.error}`
@@ -688,7 +698,10 @@ export const register: Register = (on, options) => {
         {mine && r.facts.status !== 'off' && <Text key="row-facts" dimColor={r.facts.status !== 'failed'}>{factsLine(r.facts)}</Text>}
         {mine && r.phase === 'merging' && <Text key="row-merging">Merging with Sonnet</Text>}
         {mine && r.error !== '' && <Text key="row-error" color="error">{r.error}</Text>}
-        {mine && r.pendingFill && <Text key="row-pending" dimColor>Critique ready: it goes into your message box once you answer the plan card.</Text>}
+        {mine && r.phase === 'review' && briefOf(r) !== '' && <Text key="row-brief">{rowBrief(briefOf(r))}</Text>}
+        {mine && r.phase === 'review' && !r.isFilled && briefOf(r) !== '' && (
+          <Text key="row-next" dimColor>To revise, choose No, keep planning on the plan card: the critique then goes into your message box, ready to send.</Text>
+        )}
         {mine && r.isFilled && <Text key="row-filled" dimColor>The critique is in your message box: review it, then send it.</Text>}
         <Box flexDirection="row" gap={1}>
           {!busy && e.props.isRunning && (
