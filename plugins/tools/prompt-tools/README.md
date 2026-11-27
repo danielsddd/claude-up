@@ -2,13 +2,23 @@
 
 Two buttons above the Claude Code message box: **Prompt Master** rewrites a rough prompt, and **Critique Plan** has five free models review the session's plan before any code is written.
 
+## Prompt Master
+
 ![Prompt Master: a rough draft rewritten into a clear prompt](https://github.com/danielsddd/claude-up/releases/download/v0.2.0/prompt-tools.png)
 
-- **Prompt Master** rewrites the draft with Claude Sonnet and keeps your intent, language and every point. If the rewrite is cut off, fails, or you kept typing, your draft stays as it was.
-- **Critique Plan** sends the plan Claude wrote in plan mode to five critics at once, each with its own focus: facts and versions, the plan as a whole, engineering, security and cost, and simplicity. When a model is rate limited, out of free quota, silent or slower than its time limit, the next one in its slot takes over. A full run takes about 1-2 minutes.
+- Rewrites the draft with Claude Sonnet and keeps your intent, language and every point.
+- If the rewrite is cut off, fails, or you kept typing, your draft stays as it was. Nothing is sent for you.
+
+## Critique Plan
+
+![Critique Plan: five critics and a fact check, each with its state and usage](https://github.com/danielsddd/claude-up/releases/download/v0.4.0/critique-plan.png)
+
+- Sends the plan Claude wrote in plan mode to five free critics at once, each with its own focus: facts and versions, the plan as a whole, engineering, security and cost, and simplicity. A full run takes about 1-2 minutes.
+- When a model is rate limited, out of free quota, retired, silent or slower than its time limit, the next one in its slot takes over, and the row says which model it replaced and why.
 - **Fact check:** a web search (Tavily) checks the libraries, versions and APIs the plan names, and the brief marks each claim ✓, ✗ or ? with its source.
-- Sonnet merges everything into one brief: Must fix, Worth considering, Fact check, Reviewers disagreed, Changes to make. The brief goes into your message box. Nothing is ever sent for you.
-- **Merge now** appears once two critics have answered, so you don't have to wait for the slow reasoning models.
+- **Deep research, per critique:** the **Research** button next to Critique Plan switches between `off`, `mini` and `pro` for the next critique only, then returns to off.
+- Sonnet merges everything into one brief: Must fix, Worth considering, Fact check, Reviewers disagreed, Changes to make. It shows under the plan and goes into your message box. Nothing is sent for you.
+- Each row shows its usage, such as `3/1000 daily requests | 6.2k/18k tokens`. **Merge now** appears once two critics have answered.
 
 > Critique Plan runs a background PowerShell helper, so it works on Windows only. It sends the plan text to NVIDIA, Groq, Google Gemini and OpenRouter, and the claims it checks to Tavily.
 
@@ -37,8 +47,9 @@ Critique Plan reads free API keys from environment variables. A missing key only
 | Read the brief | It shows under the plan while the plan card is open, and above the message box afterwards |
 | Use the brief | Choose **No, keep planning** on the plan card: the brief goes into the message box; review it and send it yourself |
 | Read a critic's row | Model and details on the left (usage such as `3/1000 daily requests \| 4.2k/38k tokens`, or which model it replaced and why); its state on the right |
+| Add deep research to one critique | Press **Research** until it shows `mini` (4-110 Tavily credits) or `pro` (15-250), then **Critique Plan** |
 | Rerun what failed | **Retry failed** |
-| Settings | `factCheck` (on) and `research` (`off`, `mini` or `pro`) in the plugin's settings |
+| Settings | `factCheck` (on) and `research` (`off`, `mini` or `pro`: the default the Research button starts from) in the plugin's settings |
 
 ## How it works
 

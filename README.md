@@ -32,7 +32,10 @@ Buttons and commands that act in the current session.
 
 | Plugin | What it does | Model tokens |
 | --- | --- | --- |
-| [prompt-tools](plugins/tools/prompt-tools) | **Prompt Master** rewrites a rough prompt. **Critique Plan** has five free models and a web fact check review the session's plan, merged into one brief | about 700 per rewrite; 8-15k per critique |
+| [Prompt Master](plugins/tools/prompt-tools#prompt-master) (in prompt-tools) | Rewrites a rough prompt into a clear one, never sends it | about 700 per rewrite |
+| [Critique Plan](plugins/tools/prompt-tools#critique-plan) (in prompt-tools) | Five free models and a web fact check review the session's plan, merged by Sonnet into one brief | 8-15k per critique |
+
+Both come in one plugin: `/plugin install prompt-tools --marketplace danielsddd/claude-up`.
 
 ### Workflow
 

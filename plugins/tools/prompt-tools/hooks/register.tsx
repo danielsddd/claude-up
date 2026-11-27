@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Facts, LastPlan, Run, Slot } from '../types'
+import type { Facts, LastPlan, ResearchChoice, Run, Slot } from '../types'
 
 // ---------- Prompt Master: rewrite the rough prompt in the message box with Sonnet, never send it ----------
 
@@ -168,6 +168,24 @@ const run = atom({ plugin: 'prompt-tools', key: 'run' } as const, IDLE, { shape:
 const lastPlan = atom({ plugin: 'prompt-tools', key: 'lastPlan' } as const, { path: '', label: '', text: '' } as LastPlan, {
   shape: 'plan-1',
 })
+
+// The Research button's choice for the next critique; reset after each start, so an
+// expensive research call never stays on by accident.
+const researchChoice = atom({ plugin: 'prompt-tools', key: 'research' } as const, 'default' as ResearchChoice, { shape: 'rc-1' })
+
+// The research mode a critique runs with: the button's choice, else the setting.
+export function researchFor(choice: ResearchChoice, setting: Settings['research']): Settings['research'] {
+  return choice === 'default' ? setting : choice
+}
+
+// What a press of the Research button switches to next.
+export function nextResearch(current: Settings['research']): Settings['research'] {
+  return current === 'off' ? 'mini' : current === 'mini' ? 'pro' : 'off'
+}
+
+export function researchLabel(mode: Settings['research']): string {
+  return mode === 'mini' ? 'Research: mini' : mode === 'pro' ? 'Research: pro' : 'Research: off'
+}
 
 // Bumped on every start and cancel, so a late reply from an older run is dropped.
 let generation = 0
@@ -461,6 +479,10 @@ async function start($: EngineInterface, settings: Settings, rowId: string): Pro
     $.ui.toast(`Critique Plan: ${String(err).replace(/^Error: /, '')}`)
     return
   }
+  // Deep research needs the fact check's flow, so choosing it turns the fact check on.
+  const research = researchFor(await read($, researchChoice), settings.research)
+  const runSettings: Settings = { factCheck: settings.factCheck || research !== 'off', research }
+  await update($, researchChoice, (): ResearchChoice => 'default')
   generation += 1
   const gen = generation
   await update($, run, (): Run => ({
@@ -469,9 +491,9 @@ async function start($: EngineInterface, settings: Settings, rowId: string): Pro
     planLabel: plan.label,
     planText: plan.text,
     slots: lineup.slots.map(s => ({ id: s.id, name: s.candidates[0]?.name ?? s.id, status: 'running', note: 'starting', error: '', text: '', usage: '' })),
-    facts: settings.factCheck ? { status: 'running', note: '', text: '' } : FACTS_OFF,
+    facts: runSettings.factCheck ? { status: 'running', note: '', text: '' } : FACTS_OFF,
   }))
-  await launch($, lineup, settings, lineup.slots.map(s => s.id), settings.factCheck, gen)
+  await launch($, lineup, runSettings, lineup.slots.map(s => s.id), runSettings.factCheck, gen)
 }
 
 async function monthlyCheck($: EngineInterface): Promise<void> {
@@ -841,6 +863,7 @@ export const register: Register = (on, options) => {
     const { Box, Button, Text } = $.ui.resolve(e)
     const busy = r.phase === 'critiquing' || r.phase === 'merging'
     const id = e.props.tool_use_id
+    const research = researchFor(await read($, researchChoice), settings.research)
     return (
       <Box flexDirection="column">
         {row}
@@ -856,6 +879,11 @@ export const register: Register = (on, options) => {
           {!busy && e.props.isRunning && (
             <Button key="row-critique" label="Critique Plan" onPress={() => {
               $.clock.after(0, () => void start($, settings, id))
+            }} />
+          )}
+          {!busy && e.props.isRunning && (
+            <Button key="row-research" label={researchLabel(research)} onPress={() => {
+              void update($, researchChoice, (): ResearchChoice => nextResearch(research))
             }} />
           )}
           {mine && r.phase === 'critiquing' && r.slots.filter(s => s.status === 'done').length >= MERGE_NOW_AT && (
@@ -875,6 +903,7 @@ export const register: Register = (on, options) => {
     const r = await read($, run)
     if (r.pendingFill) $.clock.after(0, () => void flushPending($))
     const busy = await read($, isBusy)
+    const research = researchFor(await read($, researchChoice), settings.research)
     const prompt = (
       <Button
         key="prompt"
@@ -894,6 +923,9 @@ export const register: Register = (on, options) => {
           {prompt}
           <Button key="start" label="Critique Plan" onPress={() => {
             $.clock.after(0, () => void start($, settings, ''))
+          }} />
+          <Button key="research" label={researchLabel(research)} onPress={() => {
+            void update($, researchChoice, (): ResearchChoice => nextResearch(research))
           }} />
         </Box>
       )
