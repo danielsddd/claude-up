@@ -12,6 +12,10 @@
 # free plan, never with pay-as-you-go usage). One Tavily research call runs only
 # when the job asks for it.
 #
+# Check mode (job.mode = 'check', run by the mod about once a month): sends every
+# lineup model one tiny request and writes limits.json: which models still answer for
+# free, Groq's daily limits, Tavily's free credits, and a list of problems to show.
+#
 # Keys never pass through the mod or the job file: each candidate names the
 # environment variable that holds its key, read here (process, then user scope).
 param([Parameter(Mandatory = $true)][string]$Job)
@@ -30,7 +34,8 @@ $utf8 = New-Object Text.UTF8Encoding($false)
 $UA = 'claude-up-critique-plan/0.7'
 
 $spec = [IO.File]::ReadAllText($Job, $utf8) | ConvertFrom-Json
-$plan = [IO.File]::ReadAllText([string]$spec.planFile, $utf8)
+$plan = ''
+if ($spec.planFile) { $plan = [IO.File]::ReadAllText([string]$spec.planFile, $utf8) }
 $stallMs = [int]$spec.stallSec * 1000
 $hardMs = [int]$spec.hardSec * 1000
 
@@ -95,6 +100,7 @@ function Get-JsonNow([string]$url, [string]$key) {
 
 function Next-Midnight { return [DateTime]::UtcNow.Date.AddDays(1).ToString('o') }
 function Today { return [DateTime]::UtcNow.ToString('yyyy-MM-dd') }
+function Get-Later([int]$days) { return [DateTime]::UtcNow.AddDays($days).ToString('o') }
 
 # ---------- providers.json: free-only switches that outlive a run ----------
 
@@ -164,6 +170,12 @@ function Set-Off([string]$keyEnv, [string]$model, [string]$until, [string]$comme
   Save-State
 }
 
+# A model the monthly check found answering again is turned back on.
+function Clear-Off([string]$keyEnv, [string]$model) {
+  $k = "$keyEnv|$model"
+  if ($state.Contains($k)) { $state.Remove($k); Save-State }
+}
+
 # OpenRouter: free models only, and only while the account shows no spend or credits.
 $openRouterOk = $null
 function Test-OpenRouter([string]$key) {
@@ -209,12 +221,12 @@ function Start-Next($s) {
     $s.idx++
     $s.cand = $c
     $off = Get-Off ([string]$c.keyEnv) ([string]$c.model)
-    if ($off) { $s.tried += "$($c.name): off ($off)"; continue }
+    if ($off) { $s.tried += "$($c.name): turned off ($off)"; continue }
     $key = Get-Key ([string]$c.keyEnv)
-    if (-not $key) { $s.tried += "$($c.name): no key ($($c.keyEnv))"; continue }
+    if (-not $key) { $s.tried += "$($c.name): no API key (set $($c.keyEnv))"; continue }
     if ($c.keyEnv -eq 'OPENROUTER_API_KEY') {
-      if (-not ([string]$c.model).EndsWith(':free')) { $s.tried += "$($c.name): not a free model"; continue }
-      if (-not (Test-OpenRouter $key)) { $s.tried += "$($c.name): OpenRouter off (free only)"; continue }
+      if (-not ([string]$c.model).EndsWith(':free')) { $s.tried += "$($c.name): not a free model, skipped"; continue }
+      if (-not (Test-OpenRouter $key)) { $s.tried += "$($c.name): OpenRouter turned off (spend or credits found; free only)"; continue }
     }
     try {
       $text = $plan
@@ -237,12 +249,12 @@ function Start-Next($s) {
       Write-SlotStatus $s
       return
     } catch {
-      $s.tried += "$($c.name): $(Hide-Keys $_.Exception.Message)"
+      $s.tried += "$($c.name): API call failed: $(Hide-Keys $_.Exception.Message)"
     }
   }
   $s.cand = $null
   $s.phase = 'failed'
-  $s.error = 'every model failed'
+  $s.error = 'all models failed'
   Write-SlotStatus $s
 }
 
@@ -252,26 +264,92 @@ function Fail-Candidate($s, [string]$why) {
 }
 
 # Classifies an HTTP failure; switches a provider off when its free quota is used up.
+# One plain message per failure, and the free-only switch it implies.
 function Get-HttpWhy($c, [int]$code, [string]$raw) {
   $msg = Hide-Keys (Get-ErrorText $raw)
+  $keyEnv = [string]$c.keyEnv
+  $model = [string]$c.model
+  if ($code -eq 401 -or $code -eq 403) { return "API key rejected (HTTP $code): check $keyEnv" }
+  if ($raw -match 'Request too large|context length|maximum context') { return "plan too large for this model's free tier (HTTP $code)" }
   if ($code -eq 429) {
-    if ($c.keyEnv -eq 'OPENROUTER_API_KEY' -and $raw -match 'free-models-per-day') {
+    if ($keyEnv -eq 'OPENROUTER_API_KEY' -and $raw -match 'free-models-per-day') {
       Set-Off 'OPENROUTER_API_KEY' '*' (Next-Midnight) "free daily requests used up on $(Today)"
-      return 'free daily requests used up'
+      return 'free daily requests used up (back after midnight UTC)'
     }
-    if ($c.keyEnv -eq 'GEMINI_API_KEY' -and $raw -match 'quota') {
-      Set-Off 'GEMINI_API_KEY' ([string]$c.model) (Next-Midnight) "free daily quota used up on $(Today)"
-      return 'free daily quota used up'
+    if ($keyEnv -eq 'GEMINI_API_KEY' -and $raw -match 'limit:\s*0\b') {
+      Set-Off $keyEnv $model (Get-Later 30) "no free quota for this model (limit 0) on $(Today)"
+      return 'no longer free on this key (quota 0)'
     }
-    return 'rate-limited'
+    if ($raw -match 'quota|per day|RPD') {
+      Set-Off $keyEnv $model (Next-Midnight) "daily quota used up on $(Today)"
+      return 'daily quota used up (back after midnight UTC)'
+    }
+    return 'rate limited (HTTP 429), try again in a minute'
   }
   if ($code -eq 402) {
-    Set-Off ([string]$c.keyEnv) '*' 'never' "billing required (HTTP 402); free only"
-    return 'billing required'
+    Set-Off $keyEnv '*' 'never' "billing required (HTTP 402) on $(Today); free only"
+    return 'no longer free (HTTP 402): provider turned off, free only'
   }
-  if ($code -eq 404 -or $code -eq 410) { return 'model retired or not offered' }
-  if ($code -eq 503) { return 'overloaded' }
-  return "HTTP $code`: $msg"
+  if ($code -eq 404 -or $code -eq 410) {
+    Set-Off $keyEnv $model (Get-Later 30) "retired or renamed (HTTP $code) on $(Today)"
+    return "model retired or renamed (HTTP $code)"
+  }
+  if ($code -eq 503) { return 'provider busy (HTTP 503)' }
+  if ($code -ge 500) { return "provider error (HTTP $code)" }
+  return "API call failed (HTTP $code): $msg"
+}
+
+# ---------- check mode: one tiny request per lineup model, results to limits.json ----------
+
+if ($spec.mode -eq 'check') {
+  $models = [ordered]@{}
+  $problems = New-Object System.Collections.Generic.List[string]
+  $tasks = @()
+  foreach ($c in @($spec.candidates)) {
+    $k = "$($c.keyEnv)|$($c.model)"
+    if ($models.Contains($k)) { continue }
+    $entry = [ordered]@{ name = [string]$c.name; ok = $false; note = ''; dayLimit = 0 }
+    $models[$k] = $entry
+    $key = Get-Key ([string]$c.keyEnv)
+    if (-not $key) { $entry.note = "no API key (set $($c.keyEnv))"; continue }
+    if ($c.keyEnv -eq 'OPENROUTER_API_KEY') {
+      if (-not ([string]$c.model).EndsWith(':free')) { $entry.note = 'not a free model'; continue }
+      if (-not (Test-OpenRouter $key)) { $entry.note = 'OpenRouter turned off (spend or credits found; free only)'; continue }
+    }
+    $body = [ordered]@{ model = [string]$c.model; stream = $false; max_tokens = 32; messages = @([ordered]@{ role = 'user'; content = 'Reply with OK.' }) }
+    $tasks += [pscustomobject]@{ k = $k; c = $c; t = $client.SendAsync((New-Request 'POST' ([string]$c.url) $key ($body | ConvertTo-Json -Depth 5 -Compress))) }
+  }
+  if ($tasks.Count -gt 0) {
+    try { [void][System.Threading.Tasks.Task]::WaitAll([System.Threading.Tasks.Task[]]@($tasks | ForEach-Object { $_.t }), $hardMs) } catch {}
+  }
+  foreach ($x in $tasks) {
+    $entry = $models[$x.k]
+    if (-not $x.t.IsCompleted) { $entry.note = "no answer within $([int]($hardMs / 1000))s (provider slow)"; continue }
+    if ($x.t.IsFaulted) { $entry.note = "API call failed: $(Hide-Keys $x.t.Exception.GetBaseException().Message)"; continue }
+    $resp = $x.t.Result
+    if ($resp.IsSuccessStatusCode) {
+      $entry.ok = $true
+      try { $entry.dayLimit = [int](@($resp.Headers.GetValues('x-ratelimit-limit-requests'))[0]) } catch {}
+      Clear-Off ([string]$x.c.keyEnv) ([string]$x.c.model)
+    } else {
+      $raw = ''
+      try { $raw = $resp.Content.ReadAsStringAsync().Result } catch {}
+      $entry.note = Get-HttpWhy $x.c ([int]$resp.StatusCode) $raw
+    }
+  }
+  foreach ($k in $models.Keys) { if (-not $models[$k].ok) { $problems.Add("$($models[$k].name): $($models[$k].note)") } }
+  $tav = $null
+  $tkey = Get-Key 'TAVILY_API_KEY'
+  if ($tkey) {
+    try {
+      $a = (Get-JsonNow 'https://api.tavily.com/usage' $tkey).account
+      $tav = [ordered]@{ used = [double]$a.plan_usage; limit = [double]$a.plan_limit; plan = [string]$a.current_plan }
+      if ([double]$a.paygo_usage -gt 0) { $problems.Add('Tavily: pay-as-you-go usage appeared; the fact check stays off (free only)') }
+      elseif ($a.plan_limit -and [double]$a.plan_usage -ge 0.9 * [double]$a.plan_limit) { $problems.Add("Tavily: $($a.plan_usage) of $($a.plan_limit) free credits used this month") }
+    } catch { $problems.Add("Tavily: could not read usage ($(Hide-Keys $_.Exception.Message))") }
+  } else { $problems.Add('Tavily: no API key (set TAVILY_API_KEY); the fact check is skipped') }
+  Write-Json ([string]$spec.limitsFile) ([ordered]@{ checkedAt = [DateTime]::UtcNow.ToString('o'); models = $models; tavily = $tav; problems = @($problems) })
+  exit 0
 }
 
 $slots = @()
@@ -304,11 +382,11 @@ function Step-Slot($s) {
   # A candidate's own maxSec (a slow model with a faster fallback) wins over the job's limit.
   $limitMs = $hardMs
   if ($s.cand -and $s.cand.maxSec) { $limitMs = [Math]::Min($hardMs, [int]$s.cand.maxSec * 1000) }
-  if (($now - $s.started).TotalMilliseconds -gt $limitMs) { Fail-Candidate $s "no finished answer within $([int]($limitMs / 1000))s"; return }
+  if (($now - $s.started).TotalMilliseconds -gt $limitMs) { Fail-Candidate $s "slower than $([int]($limitMs / 1000))s"; return }
   if (($now - $s.last).TotalMilliseconds -gt $stallMs) {
-    $what = 'no response'
-    if ($s.reader) { $what = 'no new output' }
-    Fail-Candidate $s "$what for $([int]($stallMs / 1000)) s"
+    $what = 'no answer'
+    if ($s.reader) { $what = 'output stopped' }
+    Fail-Candidate $s "$what for $([int]($stallMs / 1000))s"
     return
   }
   if (-not $s.reader) {
@@ -317,7 +395,7 @@ function Step-Slot($s) {
       if (($now - $s.written).TotalSeconds -ge 2) { Write-SlotStatus $s }
       return
     }
-    if ($s.send.IsFaulted) { Fail-Candidate $s (Hide-Keys $s.send.Exception.GetBaseException().Message); return }
+    if ($s.send.IsFaulted) { Fail-Candidate $s "API call failed: $(Hide-Keys $s.send.Exception.GetBaseException().Message)"; return }
     $resp = $s.send.Result
     if (-not $resp.IsSuccessStatusCode) {
       $raw = ''
@@ -339,7 +417,7 @@ function Step-Slot($s) {
   for ($n = 0; $n -lt 50; $n++) {
     if ($null -eq $s.line) { $s.line = $s.reader.ReadAsync($s.buf, 0, $s.buf.Length) }
     if (-not $s.line.IsCompleted) { break }
-    if ($s.line.IsFaulted) { Fail-Candidate $s (Hide-Keys $s.line.Exception.GetBaseException().Message); return }
+    if ($s.line.IsFaulted) { Fail-Candidate $s "connection dropped: $(Hide-Keys $s.line.Exception.GetBaseException().Message)"; return }
     $got = $s.line.Result
     $s.line = $null
     if ($got -le 0) { Finish-Slot $s; return }
@@ -358,7 +436,7 @@ function Step-Slot($s) {
         $e = $o['error']
         $m = [string]$e
         if ($e -is [System.Collections.IDictionary] -and $e.ContainsKey('message')) { $m = [string]$e['message'] }
-        Fail-Candidate $s (Hide-Keys $m)
+        Fail-Candidate $s "provider error: $(Hide-Keys $m)"
         return
       }
       # Token usage arrives in the last chunk (Groq also nests it under x_groq).
@@ -396,6 +474,7 @@ if ($spec.facts) {
     cfg = $spec.facts; phase = 'extracting'; note = ''; claims = @(); idx = 0; results = @()
     extractors = @($spec.facts.extractors); eIdx = 0; send = $null; started = [DateTime]::UtcNow
     runStart = [DateTime]::UtcNow; research = ''; researchId = ''; nextPoll = [DateTime]::MinValue; tavily = $null
+    tavilyUsed = 0; tavilyLimit = 0
   }
 }
 
@@ -403,6 +482,13 @@ function Write-Facts {
   $o = [ordered]@{
     phase = $facts.phase; claims = $facts.claims.Count; searched = $facts.results.Count; note = $facts.note
     seconds = [int]([DateTime]::UtcNow - $facts.runStart).TotalSeconds
+    tavilyUsed = 0; tavilyLimit = $facts.tavilyLimit
+  }
+  # Credits read before searching, plus what this run spent (advanced search: 2 a query).
+  if ($facts.tavilyLimit -gt 0) {
+    $per = 1
+    if ([string]$facts.cfg.searchDepth -eq 'advanced') { $per = 2 }
+    $o.tavilyUsed = $facts.tavilyUsed + $per * $facts.results.Count
   }
   Write-Json ([string]$facts.cfg.statusFile) $o
 }
@@ -453,6 +539,8 @@ function Test-Tavily([int]$needed) {
   if ([double]$a.paygo_usage -gt 0) { return 'pay-as-you-go usage appeared; free credits only' }
   if (-not $a.plan_limit) { return "plan '$($a.current_plan)' has no fixed credit limit; free credits only" }
   if ([double]$a.plan_usage + $needed -ge [double]$a.plan_limit) { return "$($a.plan_usage) of $($a.plan_limit) free Tavily credits used this month" }
+  $facts.tavilyUsed = [double]$a.plan_usage
+  $facts.tavilyLimit = [double]$a.plan_limit
   return ''
 }
 

@@ -36,6 +36,7 @@ Critique Plan reads free API keys from environment variables. A missing key only
 | Critique a plan | Press **Critique Plan** under the proposed plan, or above the message box, or run `/critique-plan` |
 | Read the brief | It shows under the plan while the plan card is open, and above the message box afterwards |
 | Use the brief | Choose **No, keep planning** on the plan card: the brief goes into the message box; review it and send it yourself |
+| Read a critic's row | Model and details on the left (usage such as `3/1000 daily requests \| 4.2k/38k tokens`, or which model it replaced and why); its state on the right |
 | Rerun what failed | **Retry failed** |
 | Settings | `factCheck` (on) and `research` (`off`, `mini` or `pro`) in the plugin's settings |
 
@@ -45,6 +46,25 @@ Critique Plan reads free API keys from environment variables. A missing key only
 - **Critique Plan** takes the exact plan of this session: the plan file Claude last wrote, or the plan it proposed. It never guesses from other files. The app ends a plugin's web request after 30 s, so the mod starts a hidden PowerShell helper (`worker/critique.ps1`). The helper streams all five critics at once from `config/lineup.json`, runs the fact check alongside, and writes progress files that the mod reads every 2 s. When the helper is done, the mod merges the results with Sonnet.
 
 The helper only uses free tiers. It stops the fact check before Tavily's free credits run out, and it turns off OpenRouter for good if the account ever shows spend or paid credits. It writes these switches, each with the reason, to `%LOCALAPPDATA%\prompt-tools\providers.json`.
+
+**Usage numbers.** Each provider reports the tokens of every answer, and Groq also reports its daily request limit. No provider offers a usage API for free keys, so the helper keeps today's requests and the token totals per model in `%LOCALAPPDATA%\prompt-tools\usage.json`. It counts only Critique Plan's own requests.
+
+**Monthly check.** About once a month, when a session starts, the mod runs the helper in check mode in the background: one tiny request to every model in the lineup, plus a read of Tavily's free credits. It turns back on models that answer again, turns off models that are retired or no longer free, and saves the result to `%LOCALAPPDATA%\prompt-tools\limits.json`. The next session shows one notice: either that every model answers for free, or each problem it found.
+
+**When something goes wrong**, the critic's row says what happened, and its slot moves to the next model:
+
+| Message | Meaning | What happens |
+| --- | --- | --- |
+| `daily quota used up (back after midnight UTC)` | The free daily requests for that model are spent | Model skipped until midnight UTC |
+| `free daily requests used up` | OpenRouter's free daily requests are spent | OpenRouter skipped until midnight UTC |
+| `rate limited (HTTP 429), try again in a minute` | Too many requests a minute | Next model; **Retry failed** later |
+| `no longer free (HTTP 402)` or `no longer free on this key (quota 0)` | The provider now wants payment | Provider or model turned off, free only |
+| `model retired or renamed (HTTP 404)` | The model left the provider | Model skipped for 30 days, re-tested by the monthly check |
+| `API key rejected (HTTP 401)` or `no API key (set ...)` | The key is wrong or missing | Model skipped; set the key |
+| `slower than 150s` or `no answer for 180s` | The provider is slow or stalled | Next model |
+| `provider busy (HTTP 503)`, `provider error (HTTP 5xx)`, `API call failed: ...` | A network or provider failure | Next model; **Retry failed** later |
+| `replaced <model>: <reason>` | A fallback answered instead | Shown on the row that answered |
+| `all models failed: ...` | Every model in the slot failed, each reason listed | The brief uses the other critics |
 
 ## Cost
 

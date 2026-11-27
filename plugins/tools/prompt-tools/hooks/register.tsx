@@ -247,7 +247,16 @@ export function usageNote(s: SlotStatus): string {
   if (run > 0) parts.push(`${tokenCount(run)}/${tokenCount(total)} tokens`)
   return parts.join(' | ')
 }
-export type FactsStatus = { phase: string; claims: number; searched: number; note: string; seconds: number }
+export type FactsStatus = {
+  phase: string
+  claims: number
+  searched: number
+  note: string
+  seconds: number
+  // Tavily's free credits after this run's searches (0 when not read).
+  tavilyUsed?: number
+  tavilyLimit?: number
+}
 export type FactsOut = {
   claims: { claim: string; quote?: string; sources?: { title: string; url: string; snippet: string }[]; error?: string }[]
   research?: string
@@ -262,10 +271,25 @@ export function progressNote(s: SlotStatus): string {
 
 // What a running critic has produced so far, for the left column.
 export function progressDetail(s: SlotStatus): string {
-  const parts: string[] = []
-  if (s.phase === 'writing' && s.chars > 0) parts.push(`${s.chars.toLocaleString('en-US')} chars`)
-  if (s.tried.length > 0) parts.push(`after ${s.tried.length} fallback${s.tried.length === 1 ? '' : 's'}`)
-  return parts.join(', ')
+  return [replacedNote(s.tried), s.phase === 'writing' && s.chars > 0 ? `${s.chars.toLocaleString('en-US')} chars` : '']
+    .filter(Boolean)
+    .join(' | ')
+}
+
+// Which models a slot's fallback replaced, and why: "replaced Gemini 3.5 Flash: daily quota used up".
+export function replacedNote(tried: readonly string[]): string {
+  return tried.length > 0 ? `replaced ${tried.join('; ')}` : ''
+}
+
+// A slot whose every model failed: the reason for each.
+export function failedNote(error: string, tried: readonly string[]): string {
+  const why = error || 'failed'
+  return tried.length > 0 ? `${why}: ${tried.join('; ')}` : why
+}
+
+export function creditsNote(s: FactsStatus): string {
+  const limit = s.tavilyLimit ?? 0
+  return limit > 0 ? `${s.tavilyUsed ?? 0}/${limit} credits` : ''
 }
 
 export function factsNote(s: FactsStatus): string {
@@ -334,6 +358,40 @@ export function buildJob(
     facts,
   }
   return { job, files }
+}
+
+// ---------- monthly check ----------
+
+// About once a month the mod runs the helper in check mode: one tiny request per
+// lineup model, Tavily's credits, results in limits.json, problems shown once.
+export const CHECK_EVERY_MS = 30 * 24 * 3600 * 1000
+
+export type Limits = {
+  checkedAt: string
+  models: Record<string, { name: string; ok: boolean; note: string; dayLimit: number }>
+  tavily: { used: number; limit: number; plan: string } | null
+  problems: string[]
+}
+
+export function buildCheckJob(lineup: Lineup, stateFile: string, limitsFile: string): Record<string, unknown> {
+  const withUrl = (c: Candidate) => ({ ...c, url: lineup.endpoints[c.keyEnv] ?? '' })
+  const candidates = [...lineup.slots.flatMap(s => s.candidates), ...lineup.factCheck.extractors].map(withUrl)
+  return { mode: 'check', stallSec: 150, hardSec: 150, stateFile, limitsFile, candidates }
+}
+
+export function isCheckDue(limits: Limits | null, now: number): boolean {
+  const at = limits ? Date.parse(limits.checkedAt) : NaN
+  return Number.isNaN(at) || now - at >= CHECK_EVERY_MS
+}
+
+// The one notice a finished check leaves for the next session.
+export function checkNotice(limits: Limits): string {
+  const n = Object.keys(limits.models).length
+  const credits = limits.tavily && limits.tavily.limit > 0 ? `; Tavily ${limits.tavily.used}/${limits.tavily.limit} credits` : ''
+  if (limits.problems.length === 0) return `Critique Plan monthly check: all ${n} models answer for free${credits}.`
+  const list = limits.problems.slice(0, 3).join('; ')
+  const more = limits.problems.length > 3 ? `; ${limits.problems.length - 3} more` : ''
+  return cap(`Critique Plan monthly check found ${limits.problems.length} problem${limits.problems.length === 1 ? '' : 's'}: ${list}${more}. Their slots use the next model.`, 400, 'notice')
 }
 
 // What goes into the prompt box: the fixed intro, then the merged brief, or the
@@ -416,6 +474,31 @@ async function start($: EngineInterface, settings: Settings, rowId: string): Pro
   await launch($, lineup, settings, lineup.slots.map(s => s.id), settings.factCheck, gen)
 }
 
+async function monthlyCheck($: EngineInterface): Promise<void> {
+  if (!(await $.env.get('windir'))) return
+  const local = await $.env.get('LOCALAPPDATA')
+  const temp = (await $.env.get('TEMP')) ?? (await $.env.get('TMP'))
+  if (!local || !temp) return
+  const win = (x: string) => x.replace(/\//g, '\\')
+  const dir = `${win(local)}\\prompt-tools`
+  const limitsFile = `${dir}\\limits.json`
+  const seenFile = `${dir}\\limits-seen.txt`
+  const limits = parse<Limits>(await $.fs.read(limitsFile).catch(() => ''))
+  if (limits) {
+    const seen = await $.fs.read(seenFile).catch(() => '')
+    if (seen !== limits.checkedAt) {
+      $.ui.toast(checkNotice(limits))
+      await $.fs.write(seenFile, limits.checkedAt).catch(() => undefined)
+    }
+  }
+  if (!isCheckDue(limits, await $.clock.now())) return
+  const lineup = await loadLineup($).catch(() => null)
+  if (lineup === null) return
+  const jobFile = `${win(temp)}\\prompt-tools-check-${await $.clock.now()}.json`
+  await $.fs.write(jobFile, JSON.stringify(buildCheckJob(lineup, `${dir}\\providers.json`, limitsFile)))
+  await $.process.run(launchArgv(`${win($.plugin.root)}\\worker\\critique.ps1`, jobFile), { timeoutMs: LAUNCH_TIMEOUT_MS }).catch(() => undefined)
+}
+
 async function failAll($: EngineInterface, ids: readonly string[], withFacts: boolean, why: string): Promise<void> {
   await update($, run, r => {
     let next = r
@@ -469,12 +552,11 @@ async function poll($: EngineInterface, gen: number, files: JobFiles, deadline: 
       await update($, run, r =>
         answer === ''
           ? setSlot(r, id, { status: 'failed', error: 'empty reply', note: '' })
-          : setSlot(r, id, { status: 'done', name: s.model || id, text: cap(answer, CRITIQUE_CAP, 'critique'), note: `${s.seconds}s`, usage: usageNote(s) }),
+          : setSlot(r, id, { status: 'done', name: s.model || id, text: cap(answer, CRITIQUE_CAP, 'critique'), note: `${s.seconds}s`, usage: [replacedNote(s.tried), usageNote(s)].filter(Boolean).join(' | ') }),
       )
     } else if (s?.phase === 'failed') {
       if (gen !== generation) return
-      const tried = s.tried.length > 0 ? ` (tried ${s.tried.join(', ')})` : ''
-      await update($, run, r => setSlot(r, id, { status: 'failed', error: `${s.error || 'failed'}${tried}`, note: '' }))
+      await update($, run, r => setSlot(r, id, { status: 'failed', error: failedNote(s.error, s.tried), note: '' }))
     } else {
       open += 1
       if (gen !== generation) return
@@ -487,7 +569,7 @@ async function poll($: EngineInterface, gen: number, files: JobFiles, deadline: 
       const out = parse<FactsOut>(await $.fs.read(files.facts.out).catch(() => ''))
       const text = out && out.claims.length + (out.research ? 1 : 0) > 0 ? factsText(out) : ''
       const n = out?.claims.length ?? 0
-      const note = [n > 0 ? `${n} claim${n === 1 ? '' : 's'} searched` : '', out?.note || s.note].filter(Boolean).join('; ')
+      const note = [n > 0 ? `${n} claim${n === 1 ? '' : 's'} searched` : '', out?.note || s.note, creditsNote(s)].filter(Boolean).join(' | ')
       if (gen !== generation) return
       await update($, run, (r): Run => ({ ...r, facts: { status: s.phase === 'failed' ? 'failed' : 'done', note: note || 'nothing to check', text } }))
     } else {
@@ -715,6 +797,8 @@ export const register: Register = (on, options) => {
     await update($, isBusy, () => false)
     await update($, run, r => (r.phase === 'critiquing' || r.phase === 'merging' ? IDLE : r))
     await $.command.register({ name: 'critique-plan', description: "Critique this session's plan with five free models and a web fact check, merged by Sonnet" })
+    // On a timer, so the monthly check never delays the session's start.
+    $.clock.after(0, () => void monthlyCheck($).catch(() => undefined))
     return next(e)
   })
 
