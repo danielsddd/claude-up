@@ -11,7 +11,7 @@ Each extension is a Claude Code plugin in its own folder under `mods/`.
 | Extension | Description | Model tokens |
 | --- | --- | --- |
 | [damn-ddd](mods/damn-ddd) | Animated scenes behind the chat during long replies | 0 |
-| [prompt-tools](mods/prompt-tools) | Prompt Master: rewrite a rough prompt into a clear one | about 700 per rewrite |
+| [prompt-tools](mods/prompt-tools) | Prompt Master rewrites a rough prompt; Critique Plan has five free models and a web fact check review a plan, merged by Sonnet | about 700 per rewrite; about 8-15k per critique |
 | [profiles](mods/profiles) | Focus Claude on one folder: matching skills, scoped permissions, run steps | 0 at rest, 3-8k per run |
 | [dev-vault](mods/dev-vault) | A markdown second brain: session handoffs, decisions and solved bugs | 0 at rest, 1-3k per command |
 

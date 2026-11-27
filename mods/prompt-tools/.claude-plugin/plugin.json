@@ -1,10 +1,24 @@
 {
   "name": "prompt-tools",
-  "version": "0.6.0",
-  "description": "Prompt Master: one button above the message box rewrites a rough prompt into a clear one with Sonnet, never sends it, and keeps your draft if anything goes wrong",
+  "version": "0.7.0",
+  "description": "Two buttons above the message box: Prompt Master rewrites a rough prompt with Sonnet, and Critique Plan has five free models critique the session's plan, checks its facts on the web and merges it all into one brief. Nothing is ever sent for you.",
   "types": "./types/index.d.ts",
+  "userConfig": {
+    "factCheck": {
+      "type": "boolean",
+      "title": "Fact check the plan on the web",
+      "description": "Search the web (Tavily, free credits only) for the libraries, versions and APIs the plan names. Needs TAVILY_API_KEY.",
+      "default": true
+    },
+    "research": {
+      "type": "string",
+      "title": "Deep research (off, mini or pro)",
+      "description": "Also run a Tavily research report. Costs 4-250 credits a run, so it is off unless you set mini or pro.",
+      "default": "off"
+    }
+  },
   "license": "MIT",
-  "keywords": ["claude-code", "prompt", "rewrite", "mod"],
+  "keywords": ["claude-code", "prompt", "rewrite", "plan", "critique", "mod"],
   "author": {
     "name": "danielsddd"
   }
