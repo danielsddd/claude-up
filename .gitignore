@@ -22,6 +22,6 @@ tsconfig.json
 .claude/
 
 # Kept locally, not shipped: a mod folder holds only what Claude Code needs to run it.
-mods/*/tests/
-mods/*/tools/
-mods/*/docs/
+plugins/*/*/tests/
+plugins/*/*/tools/
+plugins/*/*/docs/

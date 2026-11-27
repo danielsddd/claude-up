@@ -24,6 +24,10 @@ The two alternate on each long reply. Desktop and mobile apps only.
 | Dismiss | Automatic when the reply finishes; sooner: click an empty part of the background, right-click → **Send him off**, or `/damn1 stop` |
 | Delay | Option **Show starts after (seconds)**, default 600 |
 
+## How it works
+
+A UI-only mod. It times each turn from `turn.start`, and once the delay passes it answers the app's `Backdrop` render hook with one SVG frame at a time, drawn from pre-generated path data. It stops on `turn.complete`. It makes no model calls and adds nothing to the conversation.
+
 ## Cost
 
 0 model tokens. No model calls, nothing added to the context.

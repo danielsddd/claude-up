@@ -23,6 +23,10 @@
 
 Changes take effect in the next session started in that folder.
 
+## How it works
+
+One skill with a preset file per project type. It reads the folder's manifests, scripts, CI and Claude settings, matches presets, and writes what it decided into the folder's private settings: `skillOverrides` to hide unrelated standalone skills, `enabledPlugins` to turn off unrelated plugins, and permission rules for the folder's real commands. `.claude/profile.json` records the run so the next one can report drift.
+
 ## Cost
 
 Zero tokens at rest. A run reads the folder's manifests and settings, usually 3-8k tokens. Hidden skills then save their description tokens in every session in that folder.

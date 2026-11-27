@@ -38,6 +38,11 @@ Critique Plan reads free API keys from environment variables. A missing key only
 | Rerun what failed | **Retry failed** |
 | Settings | `factCheck` (on) and `research` (`off`, `mini` or `pro`) in the plugin's settings |
 
+## How it works
+
+- **Prompt Master** is one `$.model.complete` call to Sonnet. Its reply cap scales with the draft, and the result goes into the box with `$.prompt.fill`.
+- **Critique Plan** takes the exact plan of this session: the plan file Claude last wrote, or the plan it proposed. It never guesses from other files. The app ends a plugin's web request after 30 s, so the mod starts a hidden PowerShell helper (`worker/critique.ps1`). The helper streams all five critics at once from `config/lineup.json`, runs the fact check alongside, and writes progress files that the mod reads every 2 s. When the helper is done, the mod merges the results with Sonnet.
+
 The helper only uses free tiers. It stops the fact check before Tavily's free credits run out, and it turns off OpenRouter for good if the account ever shows spend or paid credits. It writes these switches, each with the reason, to `%LOCALAPPDATA%\prompt-tools\providers.json`.
 
 ## Cost

@@ -1,28 +1,28 @@
 {
   "name": "claude-up",
-  "description": "Open-source Claude Code mods: animated backdrops, themes and tools, each with its token cost and how it was built.",
+  "description": "Open-source plugins for Claude Code: visuals, session tools and workflow skills, each with its model-token cost stated.",
   "owner": {
     "name": "danielsddd"
   },
   "plugins": [
     {
       "name": "damn-ddd",
-      "source": "./mods/damn-ddd",
+      "source": "./plugins/visuals/damn-ddd",
       "description": "An animated show behind the chat while a long reply runs. Zero model tokens."
     },
     {
       "name": "prompt-tools",
-      "source": "./mods/prompt-tools",
-      "description": "Prompt Master: a button that rewrites a rough prompt into a clear one with Sonnet, never sending it."
+      "source": "./plugins/tools/prompt-tools",
+      "description": "Prompt Master rewrites a rough prompt with Sonnet; Critique Plan has five free models and a web fact check review the session's plan, merged into one brief. Nothing is sent for you."
     },
     {
       "name": "dev-vault",
-      "source": "./mods/dev-vault",
+      "source": "./plugins/workflow/dev-vault",
       "description": "A plain-markdown second brain: /preserve, /pickup and /log-fix keep session handoffs and solved bugs in a vault folder. Zero tokens at rest."
     },
     {
       "name": "profiles",
-      "source": "./mods/profiles",
+      "source": "./plugins/workflow/profiles",
       "description": "/profile focuses Claude Code on one folder: type presets, hidden unrelated skills, scoped permissions and run steps, all in that folder's private settings."
     }
   ]

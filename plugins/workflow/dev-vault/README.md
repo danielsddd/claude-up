@@ -17,7 +17,7 @@ A plain-markdown second brain for Claude Code: session handoffs, decisions and s
 Then set the vault folder in `~/.claude/settings.json`:
 
 ```json
-{ "env": { "DEV_VAULT": "C:\Users\you\Dev-Vault" } }
+{ "env": { "DEV_VAULT": "C:/Users/you/Dev-Vault" } }
 ```
 
 The first `/preserve` or `/log-fix` creates the folders and templates if they do not exist.
@@ -29,6 +29,10 @@ The first `/preserve` or `/log-fix` creates the folders and templates if they do
 | `/dev-vault:preserve` | Writes `01-Projects/<project>/YYYY-MM-DD-handoff.md`: decisions, files touched, open gaps, next actions and a resume prompt |
 | `/dev-vault:pickup` | Loads the latest handoff and the ADRs it links, then prints the next action |
 | `/dev-vault:log-fix` | Writes `03-Troubleshooting/YYYY-MM-DD-<slug>.md` and adds it to the index |
+
+## How it works
+
+Three skills, no hooks and no server. Each command reads `DEV_VAULT`, finds the project's folder through the `.obsidian-project` link (or the repo name), and writes or reads plain markdown from the vault's templates. Nothing runs between commands.
 
 ## Cost
 

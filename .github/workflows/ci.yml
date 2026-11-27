@@ -20,16 +20,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  mods:
-    name: Validate mods
+  plugins:
+    name: Validate plugins
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        mod: [damn-ddd, prompt-tools, dev-vault, profiles]
+        plugin: [visuals/damn-ddd, tools/prompt-tools, workflow/dev-vault, workflow/profiles]
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
         with:
           node-version: 22
       - run: npm install -g @anthropic-ai/claude-code@2.1.330
-      - run: claude plugin validate mods/${{ matrix.mod }}
+      - run: claude plugin validate plugins/${{ matrix.plugin }}
+      - run: claude plugin validate .
